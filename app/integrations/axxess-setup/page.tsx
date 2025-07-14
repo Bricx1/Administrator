@@ -14,7 +14,9 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 export default function AxxessSetup() {
-  const [connectionStatus, setConnectionStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
+  const [connectionStatus, setConnectionStatus] =
+    useState<"idle" | "testing" | "success" | "error">("idle")
+  const [testMessage, setTestMessage] = useState<string | null>(null)
   const [credentials, setCredentials] = useState({
     username: "",
     password: "",
@@ -31,27 +33,48 @@ export default function AxxessSetup() {
 
   const testConnection = async () => {
     setConnectionStatus("testing")
+    setTestMessage(null)
 
     try {
-      const response = await fetch("/api/integrations/axxess/test-connection", {
+      const response = await fetch("/api/integrations/axxess", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
       })
 
+      const result = await response.json()
+
       if (response.ok) {
         setConnectionStatus("success")
+        setTestMessage("Connection successful")
       } else {
         setConnectionStatus("error")
+        setTestMessage(result.error || "Connection failed")
       }
     } catch (error) {
       setConnectionStatus("error")
+      setTestMessage("Connection failed")
     }
   }
 
   const saveConfiguration = async () => {
-    // Implement save logic here
-    alert("Configuration saved!")
+    try {
+      const res = await fetch("/api/integrations/axxess", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      })
+
+      const result = await res.json()
+
+      if (res.ok) {
+        alert("Integration saved with ID " + result.id)
+      } else {
+        alert(result.error || "Failed to save integration")
+      }
+    } catch (err) {
+      alert("Failed to save integration")
+    }
   }
 
   return (
@@ -313,6 +336,16 @@ export default function AxxessSetup() {
                     )}
                   </Button>
                 </div>
+                {testMessage && (
+                  <p
+                    className={cn(
+                      "text-sm mt-2",
+                      connectionStatus === "success" ? "text-green-600" : "text-red-600",
+                    )}
+                  >
+                    {testMessage}
+                  </p>
+                )}
 
                 {connectionStatus === "success" && (
                   <div className="bg-green-50 p-4 rounded-lg border border-green-200">
