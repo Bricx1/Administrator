@@ -5,6 +5,25 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import useIntegrations from "@/hooks/useIntegrations"
 
+async function toggleIntegration(id: string, enabled: boolean, refresh: () => void) {
+  try {
+    const res = await fetch(`/api/integrations/${id}/toggle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    })
+    if (res.ok) {
+      refresh()
+    } else {
+      console.error("Failed to toggle integration")
+      alert("Failed to toggle integration")
+    }
+  } catch (err) {
+    console.error(err)
+    alert("Failed to toggle integration")
+  }
+}
+
 export default function IntegrationsPage() {
   const { data, loading, error, refresh } = useIntegrations()
 
@@ -34,6 +53,18 @@ export default function IntegrationsPage() {
             <div className="space-x-2">
               <Button asChild size="sm">
                 <Link href={`/integrations/${integration.id}-setup`}>Configure</Link>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() =>
+                  toggleIntegration(
+                    integration.id,
+                    integration.status !== 'connected',
+                    refresh,
+                  )
+                }
+              >
+                {integration.status === 'connected' ? 'Disable' : 'Enable'}
               </Button>
               <Button
                 size="sm"
