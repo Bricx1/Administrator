@@ -17,17 +17,20 @@ export default function IntegrationsPage() {
         <Card key={integration.id}>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{integration.name}</CardTitle>
-            <span className={integration.status ? "text-green-600" : "text-red-600"}>
-              {integration.status ? "Connected" : "Disconnected"}
+            <span
+              className={
+                integration.status === 'connected'
+                  ? 'text-green-600'
+                  : integration.status === 'error'
+                  ? 'text-red-600'
+                  : 'text-gray-600'
+              }
+            >
+              {integration.status}
             </span>
           </CardHeader>
           <CardContent className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">
-              Last Sync:{" "}
-              {integration.last_sync
-                ? new Date(integration.last_sync).toLocaleString()
-                : "Never"}
-            </p>
+            <p className="text-sm text-gray-500">Uptime: {integration.uptime}%</p>
             <div className="space-x-2">
               <Button asChild size="sm">
                 <Link href={`/integrations/${integration.id}-setup`}>Configure</Link>
