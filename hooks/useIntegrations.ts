@@ -1,71 +1,32 @@
-import { useCallback, useEffect, useState } from 'react'
-
-export interface Integration {
-  id: string
-  name: string
-  type: string
-  category: string
-  status: boolean
-  last_sync: string | null
-  sync_rate: string | null
-  api_calls_today: number
-  uptime: number | null
-  created_at: string
-}
+import { useEffect, useState } from 'react'
 
 export function useIntegrations(category?: string) {
-  const [data, setData] = useState<Integration[]>([])
-  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState([])
   const [error, setError] = useState<string | null>(null)
-  const [refreshIdx, setRefreshIdx] = useState(0)
-
-  const refresh = useCallback(() => setRefreshIdx((i) => i + 1), [])
 
   useEffect(() => {
     let isMounted = true
-    async function fetchData() {
-      setLoading(true)
+    const fetchData = async () => {
       try {
         const res = await fetch(
-          `/api/integrations${
-            category ? `?category=${encodeURIComponent(category)}` : ''
-          }`,
+          `/api/integrations${category ? `?category=${encodeURIComponent(category)}` : ''}`
         )
         if (!res.ok) {
-          let detail: unknown
-          try {
-            detail = await res.json()
-          } catch (_) {
-            detail = null
-          }
-          console.error(
-            'Integrations fetch failed:',
-            res.status,
-            res.statusText,
-            detail,
-          )
-          const message =
-            detail && typeof detail === 'object' && 'error' in detail
-              ? (detail as any).error
-              : 'request failed'
-          throw new Error(message)
+          const err = await res.json()
+          throw new Error(err.error || 'Request failed')
         }
         const json = await res.json()
         if (isMounted) setData(json)
-      } catch (err) {
-        console.error('Fetch integrations error:', err)
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Failed to load integrations')
-        }
-      } finally {
-        if (isMounted) setLoading(false)
+      } catch (err: any) {
+        console.error('Fetch error:', err.message)
+        if (isMounted) setError(err.message)
       }
     }
     fetchData()
     return () => {
       isMounted = false
     }
-  }, [refreshIdx, category])
+  }, [category])
 
-  return { data, loading, error, refresh }
+  return { data, error }
 }
