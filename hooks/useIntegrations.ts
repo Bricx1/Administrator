@@ -27,9 +27,18 @@ export function useIntegrations(category?: string) {
       setLoading(true)
       try {
         const res = await fetch(
-          `/api/integrations${category ? `?category=${encodeURIComponent(category)}` : ''}`
+          `/api/integrations${category ? `?category=${encodeURIComponent(category)}` : ''}`,
         )
-        if (!res.ok) throw new Error('request failed')
+        if (!res.ok) {
+          let detail: unknown
+          try {
+            detail = await res.json()
+          } catch (_) {
+            detail = null
+          }
+          console.error('Integrations fetch failed:', res.status, res.statusText, detail)
+          throw new Error('request failed')
+        }
         const json = await res.json()
         if (isMounted) setData(json)
       } catch (err) {
