@@ -3,9 +3,9 @@ import { supabase } from '@/lib/supabaseClient'
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { integrationId: string } },
+  context: { params: { integrationId: string } },
 ) {
-  const { integrationId } = params
+  const { integrationId } = context.params
   try {
     const { data: current, error: fetchError } = await supabase
       .from('integrations')
