@@ -286,21 +286,25 @@ export default function IntegrationsPage() {
   const [runningWorkflows, setRunningWorkflows] = useState<Set<string>>(new Set())
 
   const toggleIntegration = async (id: string) => {
-    setIntegrations((prev) =>
-      prev.map((integration) =>
-        integration.id === id ? { ...integration, enabled: !integration.enabled } : integration,
-      ),
-    )
+    const current = integrations.find((i) => i.id === id)
+    if (!current) return
 
-    // Simulate API call
+    const newEnabled = !current.enabled
+
     try {
       const response = await fetch(`/api/integrations/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: !integrations.find((i) => i.id === id)?.enabled }),
+        body: JSON.stringify({ enabled: newEnabled }),
       })
 
       if (!response.ok) throw new Error("Failed to toggle integration")
+
+      setIntegrations((prev) =>
+        prev.map((integration) =>
+          integration.id === id ? { ...integration, enabled: newEnabled } : integration,
+        ),
+      )
     } catch (error) {
       console.error("Error toggling integration:", error)
     }
