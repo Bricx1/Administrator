@@ -1,58 +1,36 @@
--- SQL schema for Supabase tables
-
-create table if not exists staff (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  email text unique,
-  role text,
-  created_at timestamp with time zone default now()
-);
-
-create table if not exists shifts (
-  id uuid primary key default gen_random_uuid(),
-  start_time timestamp with time zone not null,
-  end_time timestamp with time zone not null,
-  created_at timestamp with time zone default now()
-);
-
-create table if not exists assignments (
-  id uuid primary key default gen_random_uuid(),
-  staff_id uuid references staff(id) on delete cascade,
-  shift_id uuid references shifts(id) on delete cascade,
-  status text default 'scheduled',
-  created_at timestamp with time zone default now()
-);
-
-create table if not exists integrations (
+-- 🧱 Step 1: Create the table
+create table if not exists public.integrations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   type text,
   category text,
   status boolean default false,
-  last_sync timestamp with time zone,
+  last_sync timestamptz,
   sync_rate text,
   api_calls_today integer default 0,
   uptime integer,
-  created_at timestamp with time zone default now()
+  created_at timestamptz default now()
 );
 
-alter table integrations enable row level security;
-create policy "Admins only" on integrations
-  for select, update using (
-    exists (select 1 from staff where staff.id = auth.uid() and staff.role = 'admin')
-  );
+-- 🔐 Step 2: Enable RLS (after confirming table exists)
+alter table public.integrations enable row level security;
 
-create table if not exists integration_settings (
-  id uuid primary key default gen_random_uuid(),
-  platform text not null,
-  api_key text,
-  secret text,
-  url text,
-  updated_at timestamp with time zone default now()
+-- 🔓 Step 3: Allow SELECT for admins
+create policy "Admins can SELECT integrations" on public.integrations
+for select using (
+  exists (
+    select 1 from public.staff
+    where staff.id = auth.uid()
+    and staff.role = 'admin'
+  )
 );
 
-alter table integration_settings enable row level security;
-create policy "Admins only" on integration_settings
-  for select, update using (
-    exists (select 1 from staff where staff.id = auth.uid() and staff.role = 'admin')
-  );
+-- ✍ Step 4: Allow UPDATE for admins
+create policy "Admins can UPDATE integrations" on public.integrations
+for update using (
+  exists (
+    select 1 from public.staff
+    where staff.id = auth.uid()
+    and staff.role = 'admin'
+  )
+);
