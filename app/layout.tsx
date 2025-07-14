@@ -9,7 +9,11 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "M.A.S.E - Medical Administrative Staffing Excellence",
   description: "Comprehensive healthcare staffing management system with AI-powered OASIS quality assurance",
-    generator: 'v0.dev'
+    generator: 'v0.dev',
+    icons: {
+    icon: '/favicon.ico',
+  },
+    
 }
 
 export default function RootLayout({
