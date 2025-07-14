@@ -1,12 +1,8 @@
 export interface Integration {
   id: string
   name: string
-  type: string
-  category: string
-  status: boolean
-  last_sync: string | null
-  sync_rate: string | null
-  api_calls_today: number
+  status: 'connected' | 'disconnected' | 'error'
   uptime: number
+  api_calls_today: number
   created_at: string
 }
