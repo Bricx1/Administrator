@@ -13,7 +13,7 @@ export interface Integration {
   created_at: string
 }
 
-export function useIntegrations() {
+export function useIntegrations(category?: string) {
   const [data, setData] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +26,9 @@ export function useIntegrations() {
     async function fetchData() {
       setLoading(true)
       try {
-        const res = await fetch('/api/integrations')
+        const res = await fetch(
+          `/api/integrations${category ? `?category=${encodeURIComponent(category)}` : ''}`
+        )
         if (!res.ok) throw new Error('request failed')
         const json = await res.json()
         if (isMounted) setData(json)
@@ -41,7 +43,7 @@ export function useIntegrations() {
     return () => {
       isMounted = false
     }
-  }, [refreshIdx])
+  }, [refreshIdx, category])
 
   return { data, loading, error, refresh }
 }

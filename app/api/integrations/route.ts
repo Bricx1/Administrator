@@ -1,11 +1,18 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient'
 
-export async function GET() {
-  const { data, error } = await supabase
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const category = searchParams.get('category')
+
+  const baseQuery = supabase
     .from('integrations')
     .select('*')
     .order('created_at', { ascending: true })
+
+  const { data, error } = category
+    ? await baseQuery.eq('category', category)
+    : await baseQuery
 
   if (error) {
     console.error('Fetch integrations error:', error)
