@@ -1,32 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabaseClient'
 
-export async function PATCH(
-  request: NextRequest,
+export async function POST(
+  _req: NextRequest,
   { params }: { params: { integrationId: string } },
 ) {
   const { integrationId } = params
   try {
     const { data: current, error: fetchError } = await supabase
       .from('integrations')
-      .select('status, api_calls_today, last_sync')
+      .select('api_calls_today')
       .eq('id', integrationId)
       .single()
     if (fetchError) throw fetchError
 
-    const newStatus = !current?.status
     const { data, error } = await supabase
       .from('integrations')
-      .update({ status: newStatus })
+      .update({
+        last_sync: new Date().toISOString(),
+        api_calls_today: (current?.api_calls_today || 0) + 1,
+      })
       .eq('id', integrationId)
-      .select('status, last_sync, api_calls_today')
+      .select('last_sync, api_calls_today')
       .single()
 
     if (error) throw error
 
     return NextResponse.json(data)
   } catch (err) {
-    console.error('Toggle integration error:', err)
-    return NextResponse.json({ error: 'Failed to toggle integration' }, { status: 500 })
+    console.error('Sync integration error:', err)
+    return NextResponse.json({ error: 'Failed to sync integration' }, { status: 500 })
   }
 }
