@@ -3,12 +3,30 @@ import { supabase } from '@/lib/supabase'
 import { z } from 'zod'
 import crypto from 'crypto'
 
-const IntegrationSchema = z.object({
-  id: z.string().uuid().optional(),
-  name: z.string(),
-  status: z.enum(['connected', 'disconnected', 'error']),
-  uptime: z.number().min(0).max(100),
-  api_calls_today: z.number().min(0),
+/**
+ * Schema for creating a new integration. Only Availity and ExtendCare are
+ * supported and all credential fields are required.
+ */
+const CreateSchema = z.object({
+  name: z.enum(['Availity', 'ExtendCare']),
+  apiKey: z.string().min(1),
+  clientId: z.string().min(1),
+  secret: z.string().min(1),
+  environment: z.enum(['sandbox', 'production']),
+})
+
+/**
+ * Schema for updating an existing integration. Fields are optional so callers
+ * may update only specific values.
+ */
+const UpdateSchema = z.object({
+  id: z.string().uuid(),
+  name: z.enum(['Availity', 'ExtendCare']).optional(),
+  apiKey: z.string().optional(),
+  clientId: z.string().optional(),
+  secret: z.string().optional(),
+  environment: z.enum(['sandbox', 'production']).optional(),
+  status: z.enum(['connected', 'disconnected', 'error']).optional(),
 })
 
 async function seedIfEmpty() {
@@ -66,7 +84,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const result = IntegrationSchema.omit({ id: true }).safeParse(body)
+    const result = CreateSchema.safeParse(body)
     if (!result.success) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
     }
@@ -74,18 +92,25 @@ export async function POST(request: NextRequest) {
     const record = {
       id: crypto.randomUUID(),
       ...result.data,
+      status: 'connected',
+      uptime: 0,
+      api_calls_today: 0,
       created_at: new Date().toISOString(),
     }
 
     const { data, error } = await supabase
       .from('integrations')
       .insert(record)
-      .select()
+      .select('id')
       .single()
 
     if (error) throw error
 
-    return NextResponse.json(data, { status: 201 })
+    return NextResponse.json({
+      success: true,
+      id: data.id,
+      message: 'Integration saved',
+    })
   } catch (err) {
     console.error(err)
     return NextResponse.json(
@@ -98,7 +123,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const result = IntegrationSchema.safeParse(body)
+    const result = UpdateSchema.safeParse(body)
     if (!result.success) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
     }
@@ -109,7 +134,7 @@ export async function PUT(request: NextRequest) {
       .from('integrations')
       .update(fields)
       .eq('id', id)
-      .select()
+      .select('*')
       .single()
 
     if (error) throw error
