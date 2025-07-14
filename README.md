@@ -11,6 +11,20 @@ curl -H "apikey: $SUPABASE_ANON_KEY" "$SUPABASE_URL/rest/v1/integrations"
 
 The response should return JSON from the `integrations` table or an error detailing what went wrong.
 
+## Troubleshooting 500 Errors
+
+If `/api/integrations` returns a `500 Internal Server Error`, verify the
+following:
+
+1. `.env.local` includes valid `SUPABASE_URL` and `SUPABASE_ANON_KEY` values.
+2. The `integrations` table exists in your Supabase project and has the correct
+   schema.
+3. Row level security policies allow the current API user to read from the
+   table.
+
+You can also check server logs for the message printed by the API route for more
+details on the failure.
+
 ## Creating the `integrations` Table
 
 If the API returns an error like `relation "integrations" does not exist` you
