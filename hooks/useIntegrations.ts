@@ -27,7 +27,9 @@ export function useIntegrations(category?: string) {
       setLoading(true)
       try {
         const res = await fetch(
-          `/api/integrations${category ? `?category=${encodeURIComponent(category)}` : ''}`,
+          `/api/integrations${
+            category ? `?category=${encodeURIComponent(category)}` : ''
+          }`,
         )
         if (!res.ok) {
           let detail: unknown
@@ -36,14 +38,25 @@ export function useIntegrations(category?: string) {
           } catch (_) {
             detail = null
           }
-          console.error('Integrations fetch failed:', res.status, res.statusText, detail)
-          throw new Error('request failed')
+          console.error(
+            'Integrations fetch failed:',
+            res.status,
+            res.statusText,
+            detail,
+          )
+          const message =
+            detail && typeof detail === 'object' && 'error' in detail
+              ? (detail as any).error
+              : 'request failed'
+          throw new Error(message)
         }
         const json = await res.json()
         if (isMounted) setData(json)
       } catch (err) {
         console.error('Fetch integrations error:', err)
-        if (isMounted) setError('Failed to load integrations')
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : 'Failed to load integrations')
+        }
       } finally {
         if (isMounted) setLoading(false)
       }
