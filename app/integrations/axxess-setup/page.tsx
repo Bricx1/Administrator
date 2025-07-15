@@ -50,9 +50,42 @@ export default function AxxessSetup() {
   }
 
   const saveConfiguration = async () => {
-    // Implement save logic here
-    alert("Configuration saved!")
+  const payload = {
+    user_id: "REPLACE-WITH-REAL-UUID", // example: from session or Supabase Auth
+    username: credentials.username,
+    password_encrypted: credentials.password, // you can encrypt before sending
+    agency_id: credentials.agencyId,
+    environment: credentials.environment,
+    sync_patients: syncSettings.patients,
+    sync_orders: syncSettings.orders,
+    sync_documents: syncSettings.documents,
+    sync_physicians: syncSettings.physicians,
+    sync_frequency: syncSettings.frequency,
   }
+
+ const res = await fetch("/api/integrations/axxess", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+})
+
+const text = await res.text()
+console.log("🧾 Raw response:", text)
+
+try {
+  const result = JSON.parse(text)
+  if (result.success) {
+    alert("✅ Saved successfully.")
+  } else {
+    alert("❌ Error: " + result.error)
+  }
+} catch (err) {
+  console.error("❌ JSON parse error:", err)
+  alert("❌ Failed to parse server response. Check console.")
+}
+
+}
+
 
   return (
     <div className="min-h-screen bg-gray-50">
