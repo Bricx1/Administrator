@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase'
 import type { PostgrestError } from '@supabase/supabase-js'
 
 export async function handleGET(request: NextRequest, table: string) {
@@ -11,8 +11,9 @@ export async function handleGET(request: NextRequest, table: string) {
   const searchTerm = searchParams.get('search') || searchParams.get('query')
 
   try {
+    console.log(`[api:${table}] query params`, Object.fromEntries(searchParams))
     if (id) {
-      const { data, error, status } = await supabase
+      const { data, error, status } = await supabaseAdmin
         .from(table)
         .select('*')
         .eq('id', id)
@@ -21,21 +22,21 @@ export async function handleGET(request: NextRequest, table: string) {
       if (error) {
         console.error(`Error fetching ${table} record`, error)
         return NextResponse.json(
-          { error: error.message, code: error.code, details: error.details },
+          { success: false, error: error.message, code: error.code, details: error.details },
           { status },
         )
       }
 
       if (!data) {
-        return NextResponse.json({ error: `${table} not found` }, { status: 404 })
+        return NextResponse.json({ success: false, error: `${table} not found` }, { status: 404 })
       }
 
-      return NextResponse.json(data)
+      return NextResponse.json({ success: true, data })
     }
 
     if (idsParam) {
       const ids = idsParam.split(',').map((v) => v.trim()).filter(Boolean)
-      const { data, error, status } = await supabase
+      const { data, error, status } = await supabaseAdmin
         .from(table)
         .select('*')
         .in('id', ids)
@@ -43,15 +44,15 @@ export async function handleGET(request: NextRequest, table: string) {
       if (error) {
         console.error(`Error fetching ${table} records`, error)
         return NextResponse.json(
-          { error: error.message, code: error.code, details: error.details },
+          { success: false, error: error.message, code: error.code, details: error.details },
           { status },
         )
       }
 
-      return NextResponse.json(data ?? [])
+      return NextResponse.json({ success: true, data: data ?? [] })
     }
 
-  let query = supabase.from(table).select('*')
+  let query = supabaseAdmin.from(table).select('*')
 
   if (statusParam !== null) {
       const normalized = statusParam.toLowerCase()
@@ -74,17 +75,17 @@ export async function handleGET(request: NextRequest, table: string) {
     if (error) {
       console.error(`Error fetching ${table} records`, error)
       return NextResponse.json(
-        { error: error.message, code: error.code, details: error.details },
+        { success: false, error: error.message, code: error.code, details: error.details },
         { status: queryStatus },
       )
     }
 
-    return NextResponse.json(data ?? [])
+    return NextResponse.json({ success: true, data: data ?? [] })
   } catch (err) {
     console.error(err)
     const supabaseError = err as PostgrestError
     return NextResponse.json(
-      { error: supabaseError.message || `Failed to fetch ${table}`,
+      { success: false, error: supabaseError.message || `Failed to fetch ${table}`,
         code: supabaseError.code,
         details: supabaseError.details },
       { status: (supabaseError as any).status || 500 },

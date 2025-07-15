@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase'
 import { Integration } from '@/types/integration'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { handleGET as genericGET } from '../[table]/route'
 
 async function seedIfEmpty() {
-  const { data } = await supabase.from('integrations').select('id').limit(1)
-  if (data && data.length === 0) {
-    const samples: Integration[] = [
+  try {
+    console.log('[seedIntegrations] checking')
+    const { data, error } = await supabaseAdmin.from('integrations').select('id').limit(1)
+    if (error) {
+      console.error('seed check error', error)
+      return
+    }
+    if (data && data.length === 0) {
+      const samples: Integration[] = [
       {
         id: crypto.randomUUID(),
         name: 'Axxess',
@@ -69,7 +75,10 @@ async function seedIfEmpty() {
         created_at: new Date().toISOString(),
       },
     ]
-    await supabase.from('integrations').insert(samples)
+      await supabaseAdmin.from('integrations').insert(samples)
+    }
+  } catch (err) {
+    console.error('seedIntegrations failed', err)
   }
 }
 

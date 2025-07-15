@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase'
 import { encrypt } from '@/lib/encryption'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { integrationId: string } },
 ) {
+  if (!params.integrationId) {
+    return NextResponse.json({ success: false, error: 'Invalid integrationId' }, { status: 400 })
+  }
   try {
+    console.log('[credentials:post]', params.integrationId)
     const { username, password, agencyId, environment } = await request.json()
     const encryptedPassword = password ? encrypt(password) : null
 
-    const { error } = await supabase.from('integration_credentials').upsert({
+    const { error } = await supabaseAdmin.from('integration_credentials').upsert({
       integration_id: params.integrationId,
       username,
       password: encryptedPassword,
@@ -25,7 +29,7 @@ export async function POST(
   } catch (err) {
     console.error(err)
     return NextResponse.json(
-      { error: 'Failed to save credentials' },
+      { success: false, error: 'Failed to save credentials' },
       { status: 500 },
     )
   }

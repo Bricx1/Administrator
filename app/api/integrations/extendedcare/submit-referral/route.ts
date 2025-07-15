@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { extendedCareApi, type ExtendedCareReferralRequest } from "@/lib/extendedcare-api"
-import { supabase } from "@/lib/supabase"
+import { supabaseAdmin } from '@/lib/supabase'
 
 const referralSchema = z.object({
   patient: z.object({
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     const submission = await extendedCareApi.submitReferral(referralRequest)
 
-    const { error } = await supabase.from("referrals").insert({
+    const { error } = await supabaseAdmin.from("referrals").insert({
       id: submission.referralId,
       patient_name: referralRequest.patientName,
       diagnosis: referralRequest.diagnosis,

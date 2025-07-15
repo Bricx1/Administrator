@@ -18,7 +18,7 @@ yarn-error.log*
 
 # env files
 .env
-/.env.local
+# allow committing example env for tests
 !.env.example
 
 # vercel

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabaseAdmin } from '@/lib/supabase'
 import { encrypt } from "@/lib/encryption"
 
 interface ConfigureRequest {
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("axxess_integrations")
       .upsert({
         username: credentials.username,

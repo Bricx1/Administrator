@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
     const { id } = await request.json()
     if (!id) {
-      return NextResponse.json({ error: 'id required' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'id required' }, { status: 400 })
     }
+    console.log('[test-connection]', id)
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('integrations')
       .update({
         status: true,

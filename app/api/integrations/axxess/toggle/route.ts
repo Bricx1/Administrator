@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabaseAdmin } from '@/lib/supabase'
 
 interface ToggleRequest {
   integrationId: string
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       ? { connected: true, connected_at: new Date().toISOString() }
       : { connected: false, connected_at: null }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from("axxess_integrations")
       .update(updates)
       .eq("id", integrationId)
