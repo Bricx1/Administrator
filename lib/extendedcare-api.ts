@@ -31,6 +31,12 @@ export interface PriorAuthResponse {
   message?: string
 }
 
+export interface SubmitReferralResponse {
+  success: boolean
+  referralId: string
+  message: string
+}
+
 export interface Referral {
   id: string
   patientName: string
@@ -150,6 +156,34 @@ class ExtendedCareAPI {
     }
 
     return newReferral
+  }
+
+  async submitReferral(referral: ExtendedCareReferralRequest): Promise<SubmitReferralResponse> {
+    console.log(`Submitting referral for patient ${referral.patientId} to ExtendedCare`)
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+
+    const processed = await this.processReferral({
+      patientName: referral.patientName,
+      referralDate: new Date().toISOString(),
+      referralSource: "ExtendedCare Network",
+      diagnosis: referral.diagnosis,
+      insuranceProvider: referral.insuranceProvider,
+      insuranceId: referral.insuranceId,
+      extendedCareData: {
+        networkId: referral.patientId,
+        referralType: "network",
+        reimbursementRate: 1,
+        contractedServices: referral.requestedServices,
+        priorityLevel:
+          referral.urgencyLevel === "routine" ? "standard" : referral.urgencyLevel,
+      },
+    })
+
+    return {
+      success: true,
+      referralId: processed.id,
+      message: "Referral submitted successfully to ExtendedCare",
+    }
   }
 
   async fetchPendingReferrals(): Promise<ExtendedCareReferralRequest[]> {
