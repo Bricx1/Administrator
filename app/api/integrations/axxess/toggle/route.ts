@@ -1,52 +1,33 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
 
-interface ToggleRequest {
-  integrationId: string
-  isEnabled: boolean
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { integrationId, isEnabled } = (await request.json()) as Partial<ToggleRequest>
+    const body = await req.json()
 
-    if (!integrationId || typeof isEnabled !== "boolean") {
-      return NextResponse.json(
-        { success: false, error: "Invalid payload" },
-        { status: 400 },
-      )
-    }
+    const { email, password, agencyId, environment } = body
 
-    const updates = isEnabled
-      ? { connected: true, connected_at: new Date().toISOString() }
-      : { connected: false, connected_at: null }
-
-    const { error } = await supabase
-      .from("axxess_integrations")
-      .update(updates)
-      .eq("id", integrationId)
-      .select("id")
-      .single()
+    
+    const { data, error } = await supabaseAdmin
+      .from('axxess_integrations') // ✅ match table name
+      .upsert([
+        {
+          email,
+          password,
+          agency_id: agencyId,
+          environment,
+          enabled: true,
+        }
+      ])
 
     if (error) {
-      await logIntegrationError(error, { stage: "toggle" })
-      return NextResponse.json(
-        { success: false, error: "Database update failed" },
-        { status: 500 },
-      )
+      console.error('Supabase insert error:', error)
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
-  } catch (err) {
-    await logIntegrationError(err, { stage: "toggle" })
-    return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })
-  }
-}
-
-async function logIntegrationError(error: unknown, context?: Record<string, any>) {
-  try {
-    console.error("Axxess integration error:", error, context)
-  } catch (logErr) {
-    console.error("Failed to log integration error:", logErr)
+    return NextResponse.json({ success: true, message: 'Integration saved!', data })
+  } catch (err: any) {
+    console.error('Route error:', err)
+    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 })
   }
 }
