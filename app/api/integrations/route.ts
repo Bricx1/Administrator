@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { Integration } from '@/types/integration'
+import type { PostgrestError } from '@supabase/supabase-js'
+import { handleGET as genericGET } from '../[table]/route'
 
 async function seedIfEmpty() {
   const { data } = await supabase.from('integrations').select('id').limit(1)
@@ -71,16 +73,26 @@ async function seedIfEmpty() {
   }
 }
 
-export async function GET() {
-  const { data, error } = await supabase.from('integrations').select('*').order('created_at')
-  if (error) {
-    console.error(error)
-    return NextResponse.json({ error: 'Failed to fetch integrations' }, { status: 500 })
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+  const idsParam = searchParams.get('ids')
+  const statusParam = searchParams.get('status')
+
+  let response = await genericGET(request, 'integrations')
+
+  if (
+    response.status === 200 &&
+    !id &&
+    !idsParam &&
+    !statusParam
+  ) {
+    const data = await response.clone().json().catch(() => null)
+    if (Array.isArray(data) && data.length === 0) {
+      await seedIfEmpty()
+      response = await genericGET(request, 'integrations')
+    }
   }
-  if (!data || data.length === 0) {
-    await seedIfEmpty()
-    const { data: seeded } = await supabase.from('integrations').select('*').order('created_at')
-    return NextResponse.json(seeded ?? [])
-  }
-  return NextResponse.json(data)
+
+  return response
 }
