@@ -75,6 +75,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
   const idsParam = searchParams.get('ids')
+  const statusParam = searchParams.get('status')
+  const sort = (searchParams.get('sort') || 'asc').toLowerCase()
 
   try {
     if (id) {
@@ -102,20 +104,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(data ?? [])
     }
 
-    const { data, error } = await supabase
-      .from('integrations')
-      .select('*')
-      .order('created_at')
+    let query = supabase.from('integrations').select('*')
+
+    if (statusParam !== null) {
+      const normalized = statusParam.toLowerCase()
+      const status = normalized === 'true' || normalized === '1' || normalized === 'active'
+      query = query.eq('status', status)
+    }
+
+    const { data, error } = await query.order('created_at', {
+      ascending: sort !== 'desc',
+    })
 
     if (error) throw error
 
     if (!data || data.length === 0) {
-      await seedIfEmpty()
-      const { data: seeded } = await supabase
-        .from('integrations')
-        .select('*')
-        .order('created_at')
-      return NextResponse.json(seeded ?? [])
+      if (!statusParam && !id && !idsParam) {
+        await seedIfEmpty()
+        const { data: seeded } = await supabase
+          .from('integrations')
+          .select('*')
+          .order('created_at', { ascending: sort !== 'desc' })
+        return NextResponse.json(seeded ?? [])
+      }
+      return NextResponse.json([])
     }
 
     return NextResponse.json(data)
