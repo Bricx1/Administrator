@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { Integration } from '@/types/integration'
 
@@ -71,16 +71,59 @@ async function seedIfEmpty() {
   }
 }
 
-export async function GET() {
-  const { data, error } = await supabase.from('integrations').select('*').order('created_at')
-  if (error) {
-    console.error(error)
-    return NextResponse.json({ error: 'Failed to fetch integrations' }, { status: 500 })
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+  const idsParam = searchParams.get('ids')
+
+  try {
+    if (id) {
+      const { data, error } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+      if (!data) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
+      return NextResponse.json(data)
+    }
+
+    if (idsParam) {
+      const ids = idsParam.split(',').map((v) => v.trim()).filter(Boolean)
+      const { data, error } = await supabase
+        .from('integrations')
+        .select('*')
+        .in('id', ids)
+
+      if (error) throw error
+      return NextResponse.json(data ?? [])
+    }
+
+    const { data, error } = await supabase
+      .from('integrations')
+      .select('*')
+      .order('created_at')
+
+    if (error) throw error
+
+    if (!data || data.length === 0) {
+      await seedIfEmpty()
+      const { data: seeded } = await supabase
+        .from('integrations')
+        .select('*')
+        .order('created_at')
+      return NextResponse.json(seeded ?? [])
+    }
+
+    return NextResponse.json(data)
+  } catch (err) {
+    console.error(err)
+    return NextResponse.json(
+      { error: 'Failed to fetch integrations' },
+      { status: 500 },
+    )
   }
-  if (!data || data.length === 0) {
-    await seedIfEmpty()
-    const { data: seeded } = await supabase.from('integrations').select('*').order('created_at')
-    return NextResponse.json(seeded ?? [])
-  }
-  return NextResponse.json(data)
 }
