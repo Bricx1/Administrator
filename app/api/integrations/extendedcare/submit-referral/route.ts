@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { extendedCareApi, type ExtendedCareReferralRequest } from "@/lib/extendedcare-api"
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/server'
 
 const referralSchema = z.object({
   patient: z.object({

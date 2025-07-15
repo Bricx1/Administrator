@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +28,28 @@ export default function AxxessSetup() {
     physicians: true,
     frequency: "hourly",
   })
+  const [integration, setIntegration] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle")
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch("/api/integrations/axxess")
+        const json = await res.json()
+        if (res.ok) {
+          setIntegration(json.data)
+        } else {
+          console.error("Failed to load integration", json.error)
+        }
+      } catch (err) {
+        console.error("Failed to load integration", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
 
   const testConnection = async () => {
     setConnectionStatus("testing")
@@ -50,8 +72,29 @@ export default function AxxessSetup() {
   }
 
   const saveConfiguration = async () => {
-    // Implement save logic here
-    alert("Configuration saved!")
+    setSaveStatus("saving")
+    try {
+      const response = await fetch("/api/integrations/axxess", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          credentials,
+          syncSettings,
+          connected: true,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (response.ok) {
+        setSaveStatus("success")
+        setIntegration(data.data)
+      } else {
+        setSaveStatus("error")
+        console.error("Failed to save configuration", data.error)
+      }
+    } catch (err) {
+      setSaveStatus("error")
+      console.error("Failed to save configuration", err)
+    }
   }
 
   return (
@@ -80,6 +123,11 @@ export default function AxxessSetup() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {!loading && integration && (
+          <p className="text-sm text-gray-500 mb-4">
+            Current status: {integration.connected ? 'enabled' : 'disabled'}
+          </p>
+        )}
         <Tabs defaultValue="credentials" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="credentials">1. Authentication</TabsTrigger>
@@ -347,11 +395,27 @@ export default function AxxessSetup() {
 
                 <div className="flex justify-end space-x-3 pt-4 border-t">
                   <Button variant="outline">Cancel</Button>
-                  <Button onClick={saveConfiguration} disabled={connectionStatus !== "success"}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    Save & Enable Integration
+                  <Button
+                    onClick={saveConfiguration}
+                    disabled={connectionStatus !== "success" || saveStatus === "saving"}
+                  >
+                    {saveStatus === "saving" ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Settings className="h-4 w-4 mr-2" /> Save & Enable Integration
+                      </>
+                    )}
                   </Button>
                 </div>
+                {saveStatus === "success" && (
+                  <p className="text-sm text-green-600 mt-2">Configuration saved!</p>
+                )}
+                {saveStatus === "error" && (
+                  <p className="text-sm text-red-600 mt-2">Failed to save configuration.</p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

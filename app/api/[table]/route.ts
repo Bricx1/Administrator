@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/server'
 import type { PostgrestError } from '@supabase/supabase-js'
 
 export async function handleGET(request: NextRequest, table: string) {

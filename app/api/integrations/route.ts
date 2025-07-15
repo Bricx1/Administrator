@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase/server'
 import { Integration } from '@/types/integration'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { handleGET as genericGET } from '../[table]/route'
