@@ -7,29 +7,47 @@ export async function POST(
   { params }: { params: { integrationId: string } },
 ) {
   if (!params.integrationId) {
-    return NextResponse.json({ success: false, error: 'Invalid integrationId' }, { status: 400 })
+    return NextResponse.json(
+      { success: false, message: 'Invalid integrationId', data: null },
+      { status: 400 },
+    )
   }
   try {
     console.log('[credentials:post]', params.integrationId)
-    const { username, password, agencyId, environment } = await request.json()
-    const encryptedPassword = password ? encrypt(password) : null
+    const { email, password, agencyId, environment } = await request.json()
 
-    const { error } = await supabaseAdmin.from('integration_credentials').upsert({
-      integration_id: params.integrationId,
-      username,
-      password: encryptedPassword,
-      agency_id: agencyId,
-      environment,
-      updated_at: new Date().toISOString(),
-    })
+    if (!email || !password || !agencyId) {
+      return NextResponse.json(
+        { success: false, message: 'Missing required fields', data: null },
+        { status: 400 },
+      )
+    }
 
-    if (error) throw error
+    const { data, error } = await supabaseAdmin
+      .from('axxess_integrations')
+      .upsert({
+        email,
+        password: encrypt(password),
+        agency_id: agencyId,
+        environment,
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
 
-    return NextResponse.json({ success: true })
+    if (error) {
+      console.error('[supabase] failed to save credentials', error)
+      return NextResponse.json(
+        { success: false, message: 'Failed to save credentials', data: null },
+        { status: 500 },
+      )
+    }
+
+    return NextResponse.json({ success: true, message: 'Credentials saved', data })
   } catch (err) {
-    console.error(err)
+    console.error('[credentials] unexpected error', err)
     return NextResponse.json(
-      { success: false, error: 'Failed to save credentials' },
+      { success: false, message: 'Server error', data: null },
       { status: 500 },
     )
   }
