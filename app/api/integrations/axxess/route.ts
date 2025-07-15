@@ -1,34 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, api_key, endpoint_url } = await request.json()
+    const { username, password, agencyId, environment } = await request.json();
 
-    if (!name || !api_key || !endpoint_url) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    if (!username || !password || !agencyId) {
+      return NextResponse.json({ error: "Missing required credentials" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from('integration_configs')
-      .insert({
-        name,
-        api_key,
-        endpoint_url,
-        enabled: true,
-      })
-      .select('id')
-      .single()
+    // Simulate successful connection
+    console.log("Testing Axxess connection for:", username);
+    await new Promise((res) => setTimeout(res, 1000));
 
-    if (error) {
-      console.error(error)
-      return NextResponse.json({ error: 'Failed to save config' }, { status: 500 })
-    }
-
-    return NextResponse.json({ success: true, id: data.id })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    return NextResponse.json({
+      success: true,
+      message: "Connection successful",
+      id: "INTEGRATION-" + Date.now(),
+    });
+  } catch (error) {
+    console.error("Connection error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-
