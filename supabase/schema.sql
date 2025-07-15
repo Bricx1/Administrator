@@ -55,3 +55,20 @@ create table if not exists integration_metrics (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+create table axxess_integrations (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id),
+  username text not null,
+  password_encrypted text not null,
+  agency_id text not null,
+  environment text check (environment in ('production', 'sandbox')) default 'production',
+  sync_patients boolean default true,
+  sync_orders boolean default true,
+  sync_documents boolean default true,
+  sync_physicians boolean default true,
+  sync_frequency text default 'hourly',
+  last_synced_at timestamp,
+  created_at timestamp default now(),
+  updated_at timestamp default now()
+);

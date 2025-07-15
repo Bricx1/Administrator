@@ -21,6 +21,7 @@ export default function AxxessSetup() {
     agencyId: "",
     environment: "production",
   })
+  
   const [syncSettings, setSyncSettings] = useState({
     patients: true,
     orders: true,
