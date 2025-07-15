@@ -1,74 +1,70 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { supabase } from "@/lib/supabase"
+import { encrypt } from "@/lib/encryption"
 
-// Helper function to calculate next sync time
-function getNextSyncTime(frequency: string): string {
-  const now = new Date()
-
-  switch (frequency) {
-    case "realtime":
-      return "Continuous (via Webhooks)"
-    case "15min":
-      return new Date(now.getTime() + 15 * 60 * 1000).toISOString()
-    case "hourly":
-      return new Date(now.getTime() + 60 * 60 * 1000).toISOString()
-    case "daily":
-      const tomorrow = new Date(now)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      tomorrow.setHours(6, 0, 0, 0)
-      return tomorrow.toISOString()
-    case "manual":
-      return "Manual Sync Only"
-    default:
-      return new Date(now.getTime() + 60 * 60 * 1000).toISOString()
+interface ConfigureRequest {
+  credentials: {
+    username: string
+    password: string
+    agencyId: string
+    environment?: string
+  }
+  syncSettings: {
+    frequency: string
+    dataTypes?: string[]
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { credentials, syncSettings } = await request.json()
+    const { credentials, syncSettings } = (await request.json()) as Partial<ConfigureRequest>
 
-    // In a real implementation, you would:
-    // 1. Encrypt the credentials using a strong algorithm (e.g., AES-256).
-    // 2. Store the encrypted credentials and sync settings in your database (e.g., Supabase, Neon).
-    // 3. Set up a job scheduler (like Vercel Cron Jobs) based on `syncSettings.frequency`.
-    // 4. If `realtime`, register a webhook with Axxess.
-
-    console.log("Saving Axxess configuration...")
-
-    // Simulate encrypting credentials
-    const encryptedCredentials = {
-      username: `encrypted_user_for_${credentials.username}`,
-      password: `[ENCRYPTED_HASH]_${Math.random().toString(36).slice(2)}`,
-      agencyId: credentials.agencyId,
-      environment: credentials.environment,
+    if (
+      !credentials?.username ||
+      !credentials.password ||
+      !credentials.agencyId ||
+      !syncSettings?.frequency
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Missing required fields" },
+        { status: 400 },
+      )
     }
 
-    // Simulate saving the configuration to a database
-    const savedConfiguration = {
-      id: `axxess_config_${Date.now()}`,
-      credentials: encryptedCredentials,
-      syncSettings,
-      status: "active",
-      createdAt: new Date().toISOString(),
-      lastSync: null,
-      nextSync: getNextSyncTime(syncSettings.frequency),
+    const { data, error } = await supabase
+      .from("axxess_integrations")
+      .upsert({
+        username: credentials.username,
+        password: encrypt(credentials.password),
+        agency_id: credentials.agencyId,
+        environment: credentials.environment,
+        sync_frequency: syncSettings.frequency,
+        data_types: syncSettings.dataTypes ?? null,
+        connected: true,
+        connected_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single()
+
+    if (error) {
+      await logIntegrationError(error, { stage: "database" })
+      return NextResponse.json(
+        { success: false, error: "Failed to save configuration" },
+        { status: 500 },
+      )
     }
 
-    console.log("Axxess configuration saved successfully:", {
-      id: savedConfiguration.id,
-      status: savedConfiguration.status,
-      nextSync: savedConfiguration.nextSync,
-    })
+    return NextResponse.json({ success: true, id: data?.id })
+  } catch (err) {
+    await logIntegrationError(err, { stage: "server" })
+    return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })
+  }
+}
 
-    // Return a success response
-    return NextResponse.json({
-      success: true,
-      message: "Axxess integration configured successfully!",
-      configId: savedConfiguration.id,
-      nextSync: savedConfiguration.nextSync,
-    })
-  } catch (error) {
-    console.error("Axxess configuration error:", error)
-    return NextResponse.json({ error: "Failed to save Axxess configuration" }, { status: 500 })
+async function logIntegrationError(error: unknown, context?: Record<string, any>) {
+  try {
+    console.error("Axxess integration error:", error, context)
+  } catch (logErr) {
+    console.error("Failed to log integration error:", logErr)
   }
 }

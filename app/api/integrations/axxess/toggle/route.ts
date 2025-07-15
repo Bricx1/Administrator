@@ -25,9 +25,11 @@ export async function POST(request: NextRequest) {
       .from("axxess_integrations")
       .update(updates)
       .eq("id", integrationId)
+      .select("id")
+      .single()
 
     if (error) {
-      console.error("Axxess toggle update error:", error)
+      await logIntegrationError(error, { stage: "toggle" })
       return NextResponse.json(
         { success: false, error: "Database update failed" },
         { status: 500 },
@@ -36,7 +38,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error("Axxess toggle route error:", err)
+    await logIntegrationError(err, { stage: "toggle" })
     return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })
+  }
+}
+
+async function logIntegrationError(error: unknown, context?: Record<string, any>) {
+  try {
+    console.error("Axxess integration error:", error, context)
+  } catch (logErr) {
+    console.error("Failed to log integration error:", logErr)
   }
 }
