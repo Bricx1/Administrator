@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { Integration } from '@/types/integration'
+import type { PostgrestError } from '@supabase/supabase-js'
 
 async function seedIfEmpty() {
   const { data } = await supabase.from('integrations').select('id').limit(1)
@@ -80,27 +81,42 @@ export async function GET(request: NextRequest) {
 
   try {
     if (id) {
-      const { data, error } = await supabase
+      const { data, error, status } = await supabase
         .from('integrations')
         .select('*')
         .eq('id', id)
-        .single()
+        .maybeSingle()
 
-      if (error) throw error
-      if (!data) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      if (error) {
+        console.error('Error fetching integration', error)
+        return NextResponse.json(
+          { error: error.message, code: error.code, details: error.details },
+          { status },
+        )
       }
+
+      if (!data) {
+        return NextResponse.json({ error: 'Integration not found' }, { status: 404 })
+      }
+
       return NextResponse.json(data)
     }
 
     if (idsParam) {
       const ids = idsParam.split(',').map((v) => v.trim()).filter(Boolean)
-      const { data, error } = await supabase
+      const { data, error, status } = await supabase
         .from('integrations')
         .select('*')
         .in('id', ids)
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching integrations', error)
+        return NextResponse.json(
+          { error: error.message, code: error.code, details: error.details },
+          { status },
+        )
+      }
+
       return NextResponse.json(data ?? [])
     }
 
@@ -112,19 +128,34 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status)
     }
 
-    const { data, error } = await query.order('created_at', {
+    const { data, error, status: queryStatus } = await query.order('created_at', {
       ascending: sort !== 'desc',
     })
 
-    if (error) throw error
+    if (error) {
+      console.error('Error fetching integrations', error)
+      return NextResponse.json(
+        { error: error.message, code: error.code, details: error.details },
+        { status: queryStatus },
+      )
+    }
 
     if (!data || data.length === 0) {
       if (!statusParam && !id && !idsParam) {
         await seedIfEmpty()
-        const { data: seeded } = await supabase
+        const { data: seeded, error: seedError, status: seedStatus } = await supabase
           .from('integrations')
           .select('*')
           .order('created_at', { ascending: sort !== 'desc' })
+
+        if (seedError) {
+          console.error('Error seeding integrations', seedError)
+          return NextResponse.json(
+            { error: seedError.message, code: seedError.code, details: seedError.details },
+            { status: seedStatus },
+          )
+        }
+
         return NextResponse.json(seeded ?? [])
       }
       return NextResponse.json([])
@@ -133,9 +164,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data)
   } catch (err) {
     console.error(err)
+    const supabaseError = err as PostgrestError
     return NextResponse.json(
-      { error: 'Failed to fetch integrations' },
-      { status: 500 },
+      { error: supabaseError.message || 'Failed to fetch integrations', code: supabaseError.code, details: supabaseError.details },
+      { status: (supabaseError as any).status || 500 },
     )
   }
 }
