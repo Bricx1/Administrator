@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { Integration } from '@/types/integration'
 import type { PostgrestError } from '@supabase/supabase-js'
+import { handleGET as genericGET } from '../[table]/route'
 
 async function seedIfEmpty() {
   const { data } = await supabase.from('integrations').select('id').limit(1)
@@ -77,97 +78,21 @@ export async function GET(request: NextRequest) {
   const id = searchParams.get('id')
   const idsParam = searchParams.get('ids')
   const statusParam = searchParams.get('status')
-  const sort = (searchParams.get('sort') || 'asc').toLowerCase()
 
-  try {
-    if (id) {
-      const { data, error, status } = await supabase
-        .from('integrations')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle()
+  let response = await genericGET(request, 'integrations')
 
-      if (error) {
-        console.error('Error fetching integration', error)
-        return NextResponse.json(
-          { error: error.message, code: error.code, details: error.details },
-          { status },
-        )
-      }
-
-      if (!data) {
-        return NextResponse.json({ error: 'Integration not found' }, { status: 404 })
-      }
-
-      return NextResponse.json(data)
+  if (
+    response.status === 200 &&
+    !id &&
+    !idsParam &&
+    !statusParam
+  ) {
+    const data = await response.clone().json().catch(() => null)
+    if (Array.isArray(data) && data.length === 0) {
+      await seedIfEmpty()
+      response = await genericGET(request, 'integrations')
     }
-
-    if (idsParam) {
-      const ids = idsParam.split(',').map((v) => v.trim()).filter(Boolean)
-      const { data, error, status } = await supabase
-        .from('integrations')
-        .select('*')
-        .in('id', ids)
-
-      if (error) {
-        console.error('Error fetching integrations', error)
-        return NextResponse.json(
-          { error: error.message, code: error.code, details: error.details },
-          { status },
-        )
-      }
-
-      return NextResponse.json(data ?? [])
-    }
-
-    let query = supabase.from('integrations').select('*')
-
-    if (statusParam !== null) {
-      const normalized = statusParam.toLowerCase()
-      const status = normalized === 'true' || normalized === '1' || normalized === 'active'
-      query = query.eq('status', status)
-    }
-
-    const { data, error, status: queryStatus } = await query.order('created_at', {
-      ascending: sort !== 'desc',
-    })
-
-    if (error) {
-      console.error('Error fetching integrations', error)
-      return NextResponse.json(
-        { error: error.message, code: error.code, details: error.details },
-        { status: queryStatus },
-      )
-    }
-
-    if (!data || data.length === 0) {
-      if (!statusParam && !id && !idsParam) {
-        await seedIfEmpty()
-        const { data: seeded, error: seedError, status: seedStatus } = await supabase
-          .from('integrations')
-          .select('*')
-          .order('created_at', { ascending: sort !== 'desc' })
-
-        if (seedError) {
-          console.error('Error seeding integrations', seedError)
-          return NextResponse.json(
-            { error: seedError.message, code: seedError.code, details: seedError.details },
-            { status: seedStatus },
-          )
-        }
-
-        return NextResponse.json(seeded ?? [])
-      }
-      return NextResponse.json([])
-    }
-
-    return NextResponse.json(data)
-  } catch (err) {
-    console.error(err)
-    const supabaseError = err as PostgrestError
-    return NextResponse.json(
-      { error: supabaseError.message || 'Failed to fetch integrations', code: supabaseError.code, details: supabaseError.details },
-      { status: (supabaseError as any).status || 500 },
-    )
   }
+
+  return response
 }
