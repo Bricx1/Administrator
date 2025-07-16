@@ -1,5 +1,5 @@
 "use client"
-
+import { supabase } from '@/lib/supabase'
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -299,34 +299,33 @@ export default function IntegrationsPage() {
     )
 
     try {
-      const response = await fetch(`/api/integrations/${id}/toggle`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: nextEnabled }),
-      })
+  const response = await fetch(`/api/integrations/${id}/toggle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled: nextEnabled }),
+  });
 
-      const text = await response.text()
-      let payload: any = null
-      try {
-        payload = text ? JSON.parse(text) : null
-      } catch (err) {
-        console.error("Failed to parse response JSON", err)
-        if (text) payload = { error: text }
-      }
+  const text = await response.text();
+  console.log("Raw response:", text); // Add this
+  let payload: any = null;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch (err) {
+    console.error("Failed to parse response JSON", err);
+    if (text) payload = { error: text };
+  }
 
-      if (!response.ok || !payload || payload.success === false) {
-        const message =
-          payload?.error ||
-          `Request failed with status ${response.status}`
-        console.error("Toggle integration failed:", message)
-        alert(`Failed to toggle integration: ${message}`)
+  if (!response.ok || !payload || payload.success === false) {
+    const message = payload?.error || `Request failed with status ${response.status}`;
+    console.error("Toggle integration failed:", message);
+    alert(`Failed to toggle integration: ${message}`);
 
-        setIntegrations((prev) =>
-          prev.map((integration) =>
-            integration.id === id ? { ...integration, enabled: current.enabled } : integration,
-          ),
-        )
-        return
+    setIntegrations((prev) =>
+      prev.map((integration) =>
+        integration.id === id ? { ...integration, enabled: current.enabled } : integration
+      )
+    );
+    return;
       }
 
       const enabled = typeof payload.enabled === "boolean" ? payload.enabled : nextEnabled
@@ -391,7 +390,9 @@ export default function IntegrationsPage() {
         return newSet
       })
     }
+    
   }
+  
 
   const getStatusIcon = (status: string) => {
     switch (status) {

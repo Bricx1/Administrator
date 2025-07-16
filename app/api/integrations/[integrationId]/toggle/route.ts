@@ -1,72 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
-
-interface TogglePayload {
-  enabled: boolean
-}
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: { integrationId: string } },
 ) {
   try {
-    const id = params.integrationId
+    const id = params?.integrationId;
     if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'Missing integration id' },
-        { status: 400 },
-      )
+      return NextResponse.json({ success: false, error: 'Missing integration id' }, { status: 400 });
     }
 
-    let body: TogglePayload | undefined
-    try {
-      body = await request.json()
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON body' },
-        { status: 400 },
-      )
-    }
+    const { data: existing, error: getErr } = await supabase
+      .from('integrations')
+      .select('enabled')
+      .eq('id', id)
+      .single();
 
-    if (!body || typeof body.enabled !== 'boolean') {
-      return NextResponse.json(
-        { success: false, error: 'Invalid payload' },
-        { status: 400 },
-      )
+    if (getErr || !existing) {
+      return NextResponse.json({ success: false, error: 'Integration not found' }, { status: 404 });
     }
 
     const { data, error } = await supabase
       .from('integrations')
-      .update({
-        enabled: body.enabled,
-        status: body.enabled,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ enabled: !existing.enabled })
       .eq('id', id)
-      .select('enabled')
-      .single()
+      .select()
+      .single();
 
-    if (error) {
-      console.error('Failed to update integration:', error)
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 },
-      )
-    }
+    if (error) throw error;
 
-    if (!data) {
-      return NextResponse.json(
-        { success: false, error: 'Not found' },
-        { status: 404 },
-      )
-    }
-
-    return NextResponse.json({ success: true, enabled: data.enabled })
-  } catch (err) {
-    console.error('Toggle integration error:', err)
-    return NextResponse.json(
-      { success: false, error: 'Server error' },
-      { status: 500 },
-    )
+    return NextResponse.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Toggle failed:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

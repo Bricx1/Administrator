@@ -9,7 +9,7 @@ create table if not exists integrations (
   updated_at timestamptz default now()
 );
 
-create table if not exists integration_credentials (
+create table if not exists public.integration_credentials (
   id uuid primary key default uuid_generate_v4(),
   integration_id uuid references integrations(id),
   username text,
@@ -20,7 +20,7 @@ create table if not exists integration_credentials (
   updated_at timestamptz default now()
 );
 
-create table if not exists integration_sync_settings (
+create table if not exists public.integration_sync_settings (
   id uuid primary key default uuid_generate_v4(),
   integration_id uuid references integrations(id),
   data_types text[],
@@ -29,7 +29,7 @@ create table if not exists integration_sync_settings (
   updated_at timestamptz default now()
 );
 
-create table if not exists integration_referral_rules (
+create table if not exists public.integration_referral_rules (
   id uuid primary key default uuid_generate_v4(),
   integration_id uuid references integrations(id),
   accepted_insurance text[],
@@ -42,7 +42,7 @@ create table if not exists integration_referral_rules (
   updated_at timestamptz default now()
 );
 
-create table if not exists integration_sync_controls (
+create table if not exists public.integration_sync_controls (
   id uuid primary key default uuid_generate_v4(),
   integration_id uuid references integrations(id),
   auto_eligibility_check boolean,
@@ -53,7 +53,7 @@ create table if not exists integration_sync_controls (
   updated_at timestamptz default now()
 );
 
-create table if not exists integration_metrics (
+create table if not exists public.integration_metrics (
   id uuid primary key default uuid_generate_v4(),
   integration_id uuid references integrations(id),
   api_calls_today integer,
@@ -63,4 +63,13 @@ create table if not exists integration_metrics (
   recent_activity jsonb,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
+);
+
+create table if not exists public.api_monitoring (
+  id uuid primary key default uuid_generate_v4(),
+  api_call_type text, -- e.g. 'Eligibility Check'
+  status text, -- success, failed, pending
+  user_name text,
+  response_time_ms int,
+  created_at timestamp default now()
 );

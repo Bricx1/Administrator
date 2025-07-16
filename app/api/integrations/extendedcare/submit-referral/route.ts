@@ -1,8 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
-import { extendedCareApi, type ExtendedCareReferralRequest } from "@/lib/extendedcare-api"
-import { supabase } from "@/lib/supabase"
+import { type NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { extendedCareApi, type ExtendedCareReferralRequest } from "@/lib/extendedcare-api";
+import { supabase } from "@/lib/supabase";
 
+// Schema for input validation
 const referralSchema = z.object({
   patient: z.object({
     id: z.string(),
@@ -36,90 +37,102 @@ const referralSchema = z.object({
   }),
   specialRequirements: z.array(z.string()).optional(),
   preferredStartDate: z.string().optional(),
-})
+});
 
 export async function POST(request: NextRequest) {
-  const payload = await request.json()
-  const parsed = referralSchema.safeParse(payload)
-
-  if (!parsed.success) {
-    return NextResponse.json(
-      { success: false, message: "Invalid referral data", errors: parsed.error.flatten() },
-      { status: 400 },
-    )
-  }
-
-  const { patient, provider, insurance, ...rest } = parsed.data
-
-  const referralRequest: ExtendedCareReferralRequest = {
-    patientName: patient.name,
-    patientId: patient.id,
-    diagnosis: rest.diagnosis,
-    diagnosisCode: rest.diagnosisCode,
-    insuranceProvider: insurance.provider,
-    insuranceId: insurance.id,
-    requestedServices: rest.requestedServices,
-    urgencyLevel: rest.urgencyLevel,
-    referringProvider: provider,
-    estimatedEpisodeLength: rest.estimatedEpisodeLength,
-    geographicLocation: rest.geographicLocation,
-    specialRequirements: rest.specialRequirements,
-    preferredStartDate: rest.preferredStartDate,
-  }
-
   try {
+    const payload = await request.json();
+    const parsed = referralSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid referral data",
+          errors: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { patient, provider, insurance, ...rest } = parsed.data;
+
+    // Build referral object
+    const referralRequest: ExtendedCareReferralRequest = {
+      patientName: patient.name,
+      patientId: patient.id,
+      diagnosis: rest.diagnosis,
+      diagnosisCode: rest.diagnosisCode,
+      insuranceProvider: insurance.provider,
+      insuranceId: insurance.id,
+      requestedServices: rest.requestedServices,
+      urgencyLevel: rest.urgencyLevel,
+      referringProvider: provider,
+      estimatedEpisodeLength: rest.estimatedEpisodeLength,
+      geographicLocation: rest.geographicLocation,
+      specialRequirements: rest.specialRequirements,
+      preferredStartDate: rest.preferredStartDate,
+    };
+
+    // 1. Check eligibility
     const eligibility = await extendedCareApi.checkEligibility(
       referralRequest.patientId,
-      referralRequest.insuranceId,
-    )
+      referralRequest.insuranceId
+    );
 
     if (!eligibility.success || !eligibility.isEligible) {
       return NextResponse.json(
         { success: false, message: eligibility.message || "Patient not eligible" },
-        { status: 400 },
-      )
+        { status: 400 }
+      );
     }
 
-    const submission = await extendedCareApi.submitReferral(referralRequest)
+    // 2. Submit referral to ExtendedCare API
+    const submission = await extendedCareApi.submitReferral(referralRequest);
 
-    const { error } = await supabase.from("referrals").insert({
-      id: submission.referralId,
-      patient_name: referralRequest.patientName,
-      diagnosis: referralRequest.diagnosis,
-      insurance_provider: referralRequest.insuranceProvider,
-      insurance_id: referralRequest.insuranceId,
-      referral_source: "ExtendedCare Network",
-      status: "New",
-      created_at: new Date().toISOString(),
-    })
+    // 3. Store referral in Supabase
+    const { error } = await supabase.from("referrals").insert([
+      {
+        id: submission.referralId,
+        patient_name: referralRequest.patientName,
+        diagnosis: referralRequest.diagnosis,
+        insurance_provider: referralRequest.insuranceProvider,
+        insurance_id: referralRequest.insuranceId,
+        referral_source: "ExtendedCare Network",
+        status: "New",
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
     if (error) {
-      await logIntegrationError(error, { stage: "database" })
+      await logIntegrationError(error, { stage: "database" });
       return NextResponse.json(
         { success: false, message: "Failed to save referral" },
-        { status: 500 },
-      )
+        { status: 500 }
+      );
     }
 
+    // 4. Success response
     return NextResponse.json({
       success: true,
-      message: submission.message,
+      message: submission.message || "Referral submitted successfully",
       referralId: submission.referralId,
-    })
+    });
   } catch (err) {
-    await logIntegrationError(err, { stage: "processing" })
+    await logIntegrationError(err, { stage: "processing" });
     return NextResponse.json(
       { success: false, message: "Referral submission failed" },
-      { status: 500 },
-    )
+      { status: 500 }
+    );
   }
 }
 
+// Log errors to monitoring or console
 async function logIntegrationError(error: unknown, context?: Record<string, any>) {
   try {
-    console.error("ExtendedCare integration error:", error, context)
-    // Placeholder for real logging implementation
+    console.error("ExtendedCare integration error:", error, context);
+    // TODO: optionally save to Supabase error log table
   } catch (logErr) {
-    console.error("Failed to log integration error:", logErr)
+    console.error("Failed to log integration error:", logErr);
   }
 }
