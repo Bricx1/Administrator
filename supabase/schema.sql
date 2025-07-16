@@ -64,3 +64,34 @@ create table if not exists integration_metrics (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+-- Create the "integrations" table
+CREATE TABLE integrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL, -- e.g., 'extendedcare', 'sterling', etc.
+  enabled BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Optional: Add a trigger to auto-update updated_at on change
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_integration_updated_at
+BEFORE UPDATE ON integrations
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Sample data
+INSERT INTO integrations (name, slug, enabled)
+VALUES 
+  ('ExtendedCare Integration', 'extendedcare', false),
+  ('Sterling Integration', 'sterling', false),
+  ('Axxess Integration', 'axxess', false);

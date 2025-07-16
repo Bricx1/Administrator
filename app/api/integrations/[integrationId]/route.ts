@@ -1,51 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+// route.ts
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase"
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { integrationId: string } }
-) {
-  try {
-    const { data, error } = await supabase
-      .from('integrations')
-      .select('*')
-      .eq('id', params.integrationId)
-      .single()
-
-    if (error) throw error
-    if (!data) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-    return NextResponse.json(data)
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json(
-      { error: 'Failed to fetch integration' },
-      { status: 500 }
-    )
-  }
-}
+const supabase = createClient()
 
 export async function POST(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: { integrationId: string } }
 ) {
-  try {
-    const body = await request.json()
-    const updates = { ...body, id: params.integrationId }
-    const { data, error } = await supabase
-      .from('integrations')
-      .upsert(updates)
-      .select()
-      .single()
+  const id = params.integrationId
 
-    if (error) throw error
-    return NextResponse.json(data)
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json(
-      { error: 'Failed to update integration' },
-      { status: 500 }
-    )
+  if (!id) {
+    return NextResponse.json({ success: false, error: "Missing integration id" }, { status: 400 })
   }
+
+  // if using slug
+  const { data, error } = await supabase
+    .from("integrations")
+    .update({ enabled: true })
+    .eq("slug", id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Failed to update integration:", error)
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true, data })
 }
