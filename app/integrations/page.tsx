@@ -286,34 +286,72 @@ export default function IntegrationsPage() {
   const [runningWorkflows, setRunningWorkflows] = useState<Set<string>>(new Set())
 
   const toggleIntegration = async (id: string) => {
+    const current = integrations.find((i) => i.id === id)
+    if (!current) return
+
+    const newStatus = !current.enabled
+
+    // Optimistically update UI
     setIntegrations((prev) =>
       prev.map((integration) =>
-        integration.id === id ? { ...integration, enabled: !integration.enabled } : integration,
+        integration.id === id ? { ...integration, enabled: newStatus } : integration,
       ),
     )
 
-    // Simulate API call
     try {
       const response = await fetch(`/api/integrations/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: !integrations.find((i) => i.id === id)?.enabled }),
+        body: JSON.stringify({ status: newStatus }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        let errorData: any
+        try {
+          errorData = await response.json()
+        } catch {
+          const text = await response.text().catch(() => "")
+          errorData = { error: text }
+        }
+
         console.error("Toggle integration failed:", errorData)
-        alert(`Failed to toggle integration: ${errorData?.error || "Unknown error"}`)
-        throw new Error(
-          `Failed to toggle integration (Status ${response.status}): ${errorData?.error || "Unknown error"}`,
+        alert(`Failed to toggle integration: ${errorData.error || errorData.message || "Unknown error"}`)
+
+        // Revert optimistic update
+        setIntegrations((prev) =>
+          prev.map((integration) =>
+            integration.id === id ? { ...integration, enabled: current.enabled } : integration,
+          ),
         )
+        return
       }
 
       const result = await response.json()
+
+      // Update status text based on returned value
+      setIntegrations((prev) =>
+        prev.map((integration) =>
+          integration.id === id
+            ? {
+                ...integration,
+                enabled: result.status,
+                status: result.status ? "connected" : "disconnected",
+              }
+            : integration,
+        ),
+      )
+
       console.log("Integration toggled:", result)
     } catch (error: any) {
       console.error("Error toggling integration:", error)
       alert(`Failed to toggle integration: ${error?.message || "Unknown error"}`)
+
+      // Revert optimistic update on network error
+      setIntegrations((prev) =>
+        prev.map((integration) =>
+          integration.id === id ? { ...integration, enabled: current.enabled } : integration,
+        ),
+      )
     }
   }
 
