@@ -1,70 +1,55 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
-import { encrypt } from "@/lib/encryption"
-
-interface ConfigureRequest {
-  credentials: {
-    username: string
-    password: string
-    agencyId: string
-    environment?: string
-  }
-  syncSettings: {
-    frequency: string
-    dataTypes?: string[]
-  }
-}
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export async function POST(request: NextRequest) {
   try {
-    const { credentials, syncSettings } = (await request.json()) as Partial<ConfigureRequest>
+    const body = await request.json();
+
+    const credentials = body.credentials;
+    const syncSettings = body.syncSettings;
 
     if (
       !credentials?.username ||
-      !credentials.password ||
-      !credentials.agencyId ||
+      !credentials?.password ||
+      !credentials?.agencyId ||
+      !credentials?.environment ||
       !syncSettings?.frequency
     ) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
-        { status: 400 },
-      )
+        { status: 400 }
+      );
     }
 
-    const { data, error } = await supabase
-      .from("axxess_integrations")
-      .upsert({
-        username: credentials.username,
-        password: encrypt(credentials.password),
-        agency_id: credentials.agencyId,
-        environment: credentials.environment,
-        sync_frequency: syncSettings.frequency,
-        data_types: syncSettings.dataTypes ?? null,
-        connected: true,
-        connected_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single()
+    const payload = {
+      user_id: "5f9684bb-9932-48b5-8803-ff8dcd4aab72", // Real UUID
+      username: credentials.username,
+      password_encrypted: credentials.password,
+      agency_id: credentials.agencyId,
+      environment: credentials.environment,
+      sync_patients: syncSettings.patients,
+      sync_orders: syncSettings.orders,
+      sync_documents: syncSettings.documents,
+      sync_physicians: syncSettings.physicians,
+      sync_frequency: syncSettings.frequency,
+      last_synced_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabaseAdmin
+  .from("axxess_integrations")
+  .upsert([payload], { onConflict: 'user_id' });
+
 
     if (error) {
-      await logIntegrationError(error, { stage: "database" })
-      return NextResponse.json(
-        { success: false, error: "Failed to save configuration" },
-        { status: 500 },
-      )
+      console.error("❌ Supabase insert error:", error);
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, id: data?.id })
-  } catch (err) {
-    await logIntegrationError(err, { stage: "server" })
-    return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })
-  }
-}
-
-async function logIntegrationError(error: unknown, context?: Record<string, any>) {
-  try {
-    console.error("Axxess integration error:", error, context)
-  } catch (logErr) {
-    console.error("Failed to log integration error:", logErr)
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    console.error("❌ Unexpected server error:", error);
+    return NextResponse.json({ success: false, error: "Server error" }, { status: 500 });
   }
 }

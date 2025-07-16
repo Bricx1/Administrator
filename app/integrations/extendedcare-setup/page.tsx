@@ -36,6 +36,10 @@ export default function ExtendedCareSetupPage() {
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
   const [isSaving, setIsSaving] = useState(false)
 
+  // ✅ Keep this here only once!
+  const [loadingTest, setLoadingTest] = useState<string | null>(null)
+
+
   // Form state
   const [credentials, setCredentials] = useState({
     username: "",
@@ -115,6 +119,25 @@ export default function ExtendedCareSetupPage() {
     } finally {
       setIsSaving(false)
     }
+    const [loadingTest, setLoadingTest] = useState<string | null>(null)
+
+const runTest = async (type: string) => {
+  setLoadingTest(type)
+  try {
+    const res = await fetch("/api/integrations/extendedcare/test-action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type }),
+    })
+    const result = await res.json()
+    alert(`${type} Test: ${result.success ? "✅ Success" : "❌ Failed"}`)
+  } catch {
+    alert(`${type} Test: ❌ Error occurred`)
+  } finally {
+    setLoadingTest(null)
+  }
+}
+
   }
 
   return (

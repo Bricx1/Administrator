@@ -1,57 +1,49 @@
--- Integration setup tables
-
-create table if not exists integration_credentials (
-  id uuid primary key default uuid_generate_v4(),
-  integration_id uuid references integrations(id),
-  username text,
-  password text,
-  agency_id text,
-  environment text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+-- Create the axxess_integrations table in Supabase
+CREATE TABLE IF NOT EXISTS axxess_integrations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  username text NOT NULL,
+  password_encrypted text NOT NULL,
+  agency_id text NOT NULL,
+  environment text NOT NULL DEFAULT 'production',
+  sync_patients boolean DEFAULT true,
+  sync_orders boolean DEFAULT true,
+  sync_documents boolean DEFAULT true,
+  sync_physicians boolean DEFAULT true,
+  sync_frequency text NOT NULL DEFAULT 'hourly',
+  connected boolean DEFAULT false,
+  connected_at timestamptz,
+  last_synced_at timestamptz,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  CONSTRAINT axxess_integrations_user_id_unique UNIQUE (user_id),
+  CONSTRAINT axxess_integrations_environment_check CHECK (environment IN ('production', 'sandbox')),
+  CONSTRAINT axxess_integrations_frequency_check CHECK (sync_frequency IN ('realtime', '15min', 'hourly', 'daily', 'manual'))
 );
 
-create table if not exists integration_sync_settings (
-  id uuid primary key default uuid_generate_v4(),
-  integration_id uuid references integrations(id),
-  data_types text[],
-  sync_frequency text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_axxess_integrations_user_id ON axxess_integrations(user_id);
+CREATE INDEX IF NOT EXISTS idx_axxess_integrations_agency_id ON axxess_integrations(agency_id);
+CREATE INDEX IF NOT EXISTS idx_axxess_integrations_connected ON axxess_integrations(connected);
 
-create table if not exists integration_referral_rules (
-  id uuid primary key default uuid_generate_v4(),
-  integration_id uuid references integrations(id),
-  accepted_insurance text[],
-  min_reimbursement numeric,
-  max_distance numeric,
-  required_services text[],
-  excluded_diagnoses text[],
-  msw_notifications text[],
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+-- Enable Row Level Security (RLS)
+ALTER TABLE axxess_integrations ENABLE ROW LEVEL SECURITY;
 
-create table if not exists integration_sync_controls (
-  id uuid primary key default uuid_generate_v4(),
-  integration_id uuid references integrations(id),
-  auto_eligibility_check boolean,
-  auto_prior_auth boolean,
-  real_time_updates boolean,
-  sync_interval text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+-- Create policy to allow users to only see their own integrations
+CREATE POLICY "Users can only access their own integrations" ON axxess_integrations
+  FOR ALL USING (auth.uid() = user_id);
 
-create table if not exists integration_metrics (
-  id uuid primary key default uuid_generate_v4(),
-  integration_id uuid references integrations(id),
-  api_calls_today integer,
-  uptime numeric,
-  success_rate numeric,
-  avg_response numeric,
-  recent_activity jsonb,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+-- Create function to update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create trigger to automatically update updated_at
+CREATE TRIGGER update_axxess_integrations_updated_at
+  BEFORE UPDATE ON axxess_integrations
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();

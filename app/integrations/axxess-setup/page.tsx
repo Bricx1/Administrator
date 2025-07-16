@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 
 export default function AxxessSetup() {
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle")
   const [credentials, setCredentials] = useState({
     username: "",
     password: "",
@@ -31,61 +32,78 @@ export default function AxxessSetup() {
 
   const testConnection = async () => {
     setConnectionStatus("testing")
-
+    
     try {
-      const response = await fetch("/api/integrations/axxess/test-connection", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
+      const response = await fetch('/api/integrations/axxess/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: credentials.username,
+          password: credentials.password,
+          agencyId: credentials.agencyId,
+          environment: credentials.environment,
+        }),
       })
 
-      if (response.ok) {
+      const result = await response.json()
+      
+      if (result.success) {
         setConnectionStatus("success")
       } else {
         setConnectionStatus("error")
       }
     } catch (error) {
+      console.error('Connection test failed:', error)
       setConnectionStatus("error")
     }
   }
 
   const saveConfiguration = async () => {
-  const payload = {
-    user_id: "REPLACE-WITH-REAL-UUID", // example: from session or Supabase Auth
-    username: credentials.username,
-    password_encrypted: credentials.password, // you can encrypt before sending
-    agency_id: credentials.agencyId,
-    environment: credentials.environment,
-    sync_patients: syncSettings.patients,
-    sync_orders: syncSettings.orders,
-    sync_documents: syncSettings.documents,
-    sync_physicians: syncSettings.physicians,
-    sync_frequency: syncSettings.frequency,
+    setSaveStatus("saving")
+    
+    try {
+      const response = await fetch('/api/integrations/axxess', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          credentials: {
+            username: credentials.username,
+            password: credentials.password,
+            agencyId: credentials.agencyId,
+            environment: credentials.environment,
+            user_id: "5f9684bb-9932-48b5-8803-ff8dcd4aab72", // Replace with actual user ID
+          },
+          syncSettings: {
+            patients: syncSettings.patients,
+            orders: syncSettings.orders,
+            documents: syncSettings.documents,
+            physicians: syncSettings.physicians,
+            frequency: syncSettings.frequency,
+          },
+        }),
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        setSaveStatus("success")
+        // Redirect to integrations page or show success message
+        setTimeout(() => {
+          window.location.href = '/integrations'
+        }, 2000)
+      } else {
+        setSaveStatus("error")
+        console.error('Save failed:', result.error)
+      }
+    } catch (error) {
+      console.error('Save configuration failed:', error)
+      setSaveStatus("error")
+    }
   }
-
- const res = await fetch("/api/integrations/axxess", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(payload),
-})
-
-const text = await res.text()
-console.log("🧾 Raw response:", text)
-
-try {
-  const result = JSON.parse(text)
-  if (result.success) {
-    alert("✅ Saved successfully.")
-  } else {
-    alert("❌ Error: " + result.error)
-  }
-} catch (err) {
-  console.error("❌ JSON parse error:", err)
-  alert("❌ Failed to parse server response. Check console.")
-}
-
-}
-
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -363,6 +381,7 @@ try {
                     </div>
                   </div>
                 )}
+
                 {connectionStatus === "error" && (
                   <div className="bg-red-50 p-4 rounded-lg border border-red-200">
                     <div className="flex">
@@ -378,11 +397,51 @@ try {
                   </div>
                 )}
 
+                {saveStatus === "success" && (
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <div className="flex">
+                      <CheckCircle className="h-5 w-5 text-green-600 mr-3 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-medium text-green-900 mb-2">Integration Saved Successfully!</h4>
+                        <p className="text-sm text-green-800">
+                          Your Axxess integration has been configured and enabled. Redirecting to integrations page...
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {saveStatus === "error" && (
+                  <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                    <div className="flex">
+                      <AlertTriangle className="h-5 w-5 text-red-600 mr-3 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-medium text-red-900 mb-2">Save Failed</h4>
+                        <p className="text-sm text-red-800">
+                          There was an error saving your integration configuration. Please try again.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-end space-x-3 pt-4 border-t">
                   <Button variant="outline">Cancel</Button>
-                  <Button onClick={saveConfiguration} disabled={connectionStatus !== "success"}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    Save & Enable Integration
+                  <Button 
+                    onClick={saveConfiguration} 
+                    disabled={connectionStatus !== "success" || saveStatus === "saving"}
+                  >
+                    {saveStatus === "saving" ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Settings className="h-4 w-4 mr-2" />
+                        Save & Enable Integration
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>

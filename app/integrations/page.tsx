@@ -300,9 +300,20 @@ export default function IntegrationsPage() {
         body: JSON.stringify({ enabled: !integrations.find((i) => i.id === id)?.enabled }),
       })
 
-      if (!response.ok) throw new Error("Failed to toggle integration")
-    } catch (error) {
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Toggle integration failed:", errorData)
+        alert(`Failed to toggle integration: ${errorData?.error || "Unknown error"}`)
+        throw new Error(
+          `Failed to toggle integration (Status ${response.status}): ${errorData?.error || "Unknown error"}`,
+        )
+      }
+
+      const result = await response.json()
+      console.log("Integration toggled:", result)
+    } catch (error: any) {
       console.error("Error toggling integration:", error)
+      alert(`Failed to toggle integration: ${error?.message || "Unknown error"}`)
     }
   }
 
