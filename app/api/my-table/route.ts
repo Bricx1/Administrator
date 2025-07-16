@@ -1,53 +1,61 @@
-import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
-
-interface MyTableRow {
-  id: string
-  name: string
-  email: string
-  created_at: string
-}
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email } = await request.json()
+    const { name, email } = await request.json();
     const { data, error } = await supabase
-      .from("my_table")
+      .from('my_table')
       .insert({ name, email })
       .select()
-      .single()
+      .single();
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 },
+      );
     }
 
-    return NextResponse.json({ success: true, data })
+    return NextResponse.json({ success: true, data });
   } catch {
-    return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: 'Invalid request body' },
+      { status: 400 },
+    );
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const { id, name, email } = await request.json()
+    const { id, name, email } = await request.json();
 
     const { data, error } = await supabase
-      .from("my_table")
+      .from('my_table')
       .update({ name, email })
-      .eq("id", id)
+      .eq('id', id)
       .select()
-      .single()
+      .single();
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 },
+      );
     }
 
     if (!data) {
-      return NextResponse.json({ success: false, error: "Not found" }, { status: 404 })
+      return NextResponse.json(
+        { success: false, error: 'Not found' },
+        { status: 404 },
+      );
     }
 
-    return NextResponse.json({ success: true, data })
+    return NextResponse.json({ success: true, data });
   } catch {
-    return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: 'Invalid request body' },
+      { status: 400 },
+    );
   }
 }
