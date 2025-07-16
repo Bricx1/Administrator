@@ -286,34 +286,70 @@ export default function IntegrationsPage() {
   const [runningWorkflows, setRunningWorkflows] = useState<Set<string>>(new Set())
 
   const toggleIntegration = async (id: string) => {
+    const current = integrations.find((i) => i.id === id)
+    if (!current) return
+
+    const nextEnabled = !current.enabled
+
+    // Optimistically update switch state
     setIntegrations((prev) =>
       prev.map((integration) =>
-        integration.id === id ? { ...integration, enabled: !integration.enabled } : integration,
+        integration.id === id ? { ...integration, enabled: nextEnabled } : integration,
       ),
     )
 
-    // Simulate API call
     try {
-      const response = await fetch(`/api/integrations/${id}`, {
+      const response = await fetch(`/api/integrations/${id}/toggle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: !integrations.find((i) => i.id === id)?.enabled }),
+        body: JSON.stringify({ enabled: nextEnabled }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Toggle integration failed:", errorData)
-        alert(`Failed to toggle integration: ${errorData?.error || "Unknown error"}`)
-        throw new Error(
-          `Failed to toggle integration (Status ${response.status}): ${errorData?.error || "Unknown error"}`,
-        )
+      const text = await response.text()
+      let payload: any = null
+      try {
+        payload = text ? JSON.parse(text) : null
+      } catch (err) {
+        console.error("Failed to parse response JSON", err)
+        if (text) payload = { error: text }
       }
 
-      const result = await response.json()
-      console.log("Integration toggled:", result)
-    } catch (error: any) {
-      console.error("Error toggling integration:", error)
-      alert(`Failed to toggle integration: ${error?.message || "Unknown error"}`)
+      if (!response.ok || !payload || payload.success === false) {
+        const message =
+          payload?.error ||
+          `Request failed with status ${response.status}`
+        console.error("Toggle integration failed:", message)
+        alert(`Failed to toggle integration: ${message}`)
+
+        setIntegrations((prev) =>
+          prev.map((integration) =>
+            integration.id === id ? { ...integration, enabled: current.enabled } : integration,
+          ),
+        )
+        return
+      }
+
+      const enabled = typeof payload.enabled === "boolean" ? payload.enabled : nextEnabled
+      setIntegrations((prev) =>
+        prev.map((integration) =>
+          integration.id === id
+            ? {
+                ...integration,
+                enabled,
+                status: enabled ? "connected" : "disconnected",
+              }
+            : integration,
+        ),
+      )
+    } catch (err: any) {
+      console.error("Error toggling integration:", err)
+      alert(`Failed to toggle integration: ${err?.message || "Unknown error"}`)
+
+      setIntegrations((prev) =>
+        prev.map((integration) =>
+          integration.id === id ? { ...integration, enabled: current.enabled } : integration,
+        ),
+      )
     }
   }
 
