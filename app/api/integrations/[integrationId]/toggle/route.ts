@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+interface IntegrationRow {
+  id: string
+  status: boolean
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { integrationId: string } },
 ) {
   try {
+    if (!params.integrationId) {
+      return NextResponse.json(
+        { success: false, error: 'Missing integration id' },
+        { status: 400 },
+      )
+    }
+
     const { enabled } = await request.json()
 
     if (typeof enabled !== 'boolean') {

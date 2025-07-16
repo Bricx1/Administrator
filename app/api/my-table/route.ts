@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   try {
     const { name, email } = await request.json()
     const { data, error } = await supabase
-      .from<MyTableRow>("my_table")
+      .from("my_table")
       .insert({ name, email })
       .select()
       .single()
@@ -32,7 +32,7 @@ export async function PUT(request: NextRequest) {
     const { id, name, email } = await request.json()
 
     const { data, error } = await supabase
-      .from<MyTableRow>("my_table")
+      .from("my_table")
       .update({ name, email })
       .eq("id", id)
       .select()

@@ -305,16 +305,25 @@ export default function IntegrationsPage() {
         body: JSON.stringify({ enabled: nextEnabled }),
       })
 
-      let payload: any = null
+      let payload: any
+      let parseError: string | undefined
+
       try {
         payload = await response.json()
-      } catch {
-        const text = await response.text().catch(() => "")
-        if (text) payload = { error: text }
+      } catch (err: any) {
+        parseError = err?.message
+        try {
+          const text = await response.text()
+          if (text) payload = { error: text }
+        } catch {}
       }
 
-      if (!response.ok || !payload?.success) {
-        const message = payload?.error || `Request failed with status ${response.status}`
+      if (!response.ok || !payload || payload.success === false) {
+        const message =
+          payload?.error ||
+          payload?.message ||
+          parseError ||
+          `Request failed with status ${response.status}`
         console.error("Toggle integration failed:", message)
         alert(`Failed to toggle integration: ${message}`)
 

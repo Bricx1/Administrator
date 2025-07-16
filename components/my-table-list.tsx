@@ -17,7 +17,7 @@ export function MyTableList() {
   useEffect(() => {
     const fetchRows = async () => {
       const { data, error } = await supabase
-        .from<MyTableRow>("my_table")
+        .from("my_table")
         .select("*")
         .order("created_at", { ascending: false })
 
