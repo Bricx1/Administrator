@@ -8,15 +8,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'id required' }, { status: 400 })
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('integrations')
       .update({
         status: true,
         last_sync: new Date().toISOString(),
       })
       .eq('id', id)
+      .select('id')
+      .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Supabase update error:', error)
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 },
+      )
+    }
 
     return NextResponse.json({
       success: true,

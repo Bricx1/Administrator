@@ -314,7 +314,7 @@ export function ReferralAlertSystem() {
 
   const sendEmailAlert = async (alert: ActiveAlert, recipients: string[]) => {
     try {
-      await fetch("/api/notifications/email", {
+      const res = await fetch("/api/notifications/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -324,6 +324,10 @@ export function ReferralAlertSystem() {
           priority: alert.priority,
         }),
       })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error)
+      }
     } catch (error) {
       console.error("Failed to send email alert:", error)
     }
@@ -331,7 +335,7 @@ export function ReferralAlertSystem() {
 
   const sendSMSAlert = async (alert: ActiveAlert, recipients: string[]) => {
     try {
-      await fetch("/api/notifications/sms", {
+      const res = await fetch("/api/notifications/sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -340,6 +344,10 @@ export function ReferralAlertSystem() {
           priority: alert.priority,
         }),
       })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error)
+      }
     } catch (error) {
       console.error("Failed to send SMS alert:", error)
     }

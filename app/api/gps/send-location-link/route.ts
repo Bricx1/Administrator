@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
     // Default message if not provided
     const smsMessage = message || `Your healthcare provider is on the way! Track their location here: ${trackingLink}`
 
-    // Send SMS using Twilio
     const twilioResponse = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`,
       {
@@ -31,11 +30,15 @@ export async function POST(request: NextRequest) {
       },
     )
 
-    if (!twilioResponse.ok) {
-      throw new Error("Failed to send SMS")
-    }
+    const twilioData = await twilioResponse.json().catch(() => null)
 
-    const twilioData = await twilioResponse.json()
+    if (!twilioResponse.ok || !twilioData) {
+      console.error("Twilio error response", twilioData)
+      return NextResponse.json(
+        { success: false, error: "Failed to send location link" },
+        { status: 502 },
+      )
+    }
 
     // Log the activity
     console.log(`Location link sent to ${patientPhoneNumber} for staff ${staffId}`)

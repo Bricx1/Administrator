@@ -55,23 +55,30 @@ export function CAQHIntegrationWidget() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
   useEffect(() => {
-    fetchCAQHStats()
-    const interval = setInterval(fetchCAQHStats, 30000) // Refresh every 30 seconds
-    return () => clearInterval(interval)
+    let isMounted = true
+    const load = async () => {
+      await fetchCAQHStats(isMounted)
+    }
+    load()
+    const interval = setInterval(() => load(), 30000)
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
   }, [])
 
-  const fetchCAQHStats = async () => {
+  const fetchCAQHStats = async (mounted = true) => {
     try {
       const response = await fetch("/api/caqh/monitoring")
-      if (response.ok) {
-        const data = await response.json()
+      const data = await response.json().catch(() => null)
+      if (mounted && response.ok && data) {
         setStats(data)
         setLastRefresh(new Date())
       }
     } catch (error) {
       console.error("Failed to fetch CAQH stats:", error)
     } finally {
-      setIsLoading(false)
+      if (mounted) setIsLoading(false)
     }
   }
 
