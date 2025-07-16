@@ -1,5 +1,15 @@
 -- Integration setup tables
 
+create table if not exists integrations (
+  id uuid primary key default uuid_generate_v4(),
+  slug text unique not null,
+  name text not null,
+  enabled boolean default false,
+  status boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 create table if not exists integration_credentials (
   id uuid primary key default uuid_generate_v4(),
   integration_id uuid references integrations(id),
