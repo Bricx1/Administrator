@@ -137,12 +137,10 @@ export function StaffEducationWidget({ staffId, onEducationComplete }: StaffEduc
   }
 
   const generatePersonalizedPlan = () => {
-    console.log(`Generating personalized improvement plan for ${staffData.name}`)
     // In real implementation, this would analyze documentation patterns and create a custom plan
   }
 
   const startEducationModule = (moduleId: string) => {
-    console.log(`Starting education module ${moduleId} for ${staffData.name}`)
     // In real implementation, this would launch the education module
   }
 

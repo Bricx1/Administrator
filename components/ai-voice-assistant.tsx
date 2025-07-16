@@ -176,22 +176,19 @@ export function AIVoiceAssistant({ onNavigate, currentPage, userRole = "staff" }
     switch (functionName) {
       case "search":
         // Implement search functionality
-        console.log("Searching for:", parameters.query)
         break
       case "filter":
         // Implement filtering
-        console.log("Applying filter:", parameters)
         break
       case "create":
         // Implement creation functions
-        console.log("Creating:", parameters.type)
         break
       case "update":
         // Implement update functions
-        console.log("Updating:", parameters)
         break
       default:
-        console.log("Unknown function:", functionName)
+        // Unknown function
+        break
     }
   }
 

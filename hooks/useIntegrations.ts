@@ -8,23 +8,27 @@ export default function useIntegrations() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isMounted: () => boolean) => {
     setLoading(true)
     setError(null)
     try {
       const res = await fetch('/api/integrations')
-      if (!res.ok) throw new Error('Failed to load integrations')
-      const json = await res.json()
-      setData(json)
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json) throw new Error('Failed to load integrations')
+      if (isMounted()) setData(json)
     } catch (err: any) {
-      setError(err.message)
+      if (isMounted()) setError(err.message)
     } finally {
-      setLoading(false)
+      if (isMounted()) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    fetchData()
+    let mounted = true
+    fetchData(() => mounted)
+    return () => {
+      mounted = false
+    }
   }, [fetchData])
 
   return { data, loading, error, refresh: fetchData }

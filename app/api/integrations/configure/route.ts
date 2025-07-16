@@ -9,12 +9,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'id required' }, { status: 400 })
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('integrations')
       .upsert({ id, ...updates })
+      .select('id')
+      .single()
 
-    if (error) throw error
-    return NextResponse.json({ success: true })
+    if (error) {
+      console.error('Supabase upsert error:', error)
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 },
+      )
+    }
+
+    return NextResponse.json({ success: true, id: data?.id }, { status: 200 })
   } catch (err) {
     console.error(err)
     return NextResponse.json(

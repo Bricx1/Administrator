@@ -39,12 +39,20 @@ export default function StaffGpsTracker({ staffFleet, filter }: StaffGpsTrackerP
   const handleSendLocationLink = async (staffId: string) => {
     // In a real app, you'd get the patient's number associated with the staff's next visit
     const patientPhoneNumber = "+15551234567" // Mock phone number
-    await fetch("/api/gps/send-location-link", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ staffId, patientPhoneNumber }),
-    })
-    alert(`Location link sent to patient for staff ${staffId}`)
+    try {
+      const res = await fetch("/api/gps/send-location-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId, patientPhoneNumber }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error)
+      }
+      alert(`Location link sent to patient for staff ${staffId}`)
+    } catch {
+      alert("Failed to send location link")
+    }
   }
 
   const getStatusColor = (status: string) => {
