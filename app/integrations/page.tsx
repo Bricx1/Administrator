@@ -289,33 +289,34 @@ export default function IntegrationsPage() {
     const current = integrations.find((i) => i.id === id)
     if (!current) return
 
-    const newStatus = !current.enabled
+    const nextEnabled = !current.enabled
 
-    // Optimistically update UI
+    // Optimistically update switch state
     setIntegrations((prev) =>
       prev.map((integration) =>
-        integration.id === id ? { ...integration, enabled: newStatus } : integration,
+        integration.id === id ? { ...integration, enabled: nextEnabled } : integration,
       ),
     )
 
     try {
-      const response = await fetch(`/api/integrations/${id}`, {
+      const response = await fetch(`/api/integrations/${id}/toggle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ enabled: nextEnabled }),
       })
 
-      if (!response.ok) {
-        let errorData: any
-        try {
-          errorData = await response.json()
-        } catch {
-          const text = await response.text().catch(() => "")
-          errorData = { error: text }
-        }
+      let payload: any = null
+      try {
+        payload = await response.json()
+      } catch {
+        const text = await response.text().catch(() => "")
+        if (text) payload = { error: text }
+      }
 
-        console.error("Toggle integration failed:", errorData)
-        alert(`Failed to toggle integration: ${errorData.error || errorData.message || "Unknown error"}`)
+      if (!response.ok || !payload?.success) {
+        const message = payload?.error || `Request failed with status ${response.status}`
+        console.error("Toggle integration failed:", message)
+        alert(`Failed to toggle integration: ${message}`)
 
         // Revert optimistic update
         setIntegrations((prev) =>
@@ -326,27 +327,23 @@ export default function IntegrationsPage() {
         return
       }
 
-      const result = await response.json()
-
-      // Update status text based on returned value
+      const enabled = payload.enabled ?? nextEnabled
       setIntegrations((prev) =>
         prev.map((integration) =>
           integration.id === id
             ? {
                 ...integration,
-                enabled: result.status,
-                status: result.status ? "connected" : "disconnected",
+                enabled,
+                status: enabled ? "connected" : "disconnected",
               }
             : integration,
         ),
       )
+    } catch (err: any) {
+      console.error("Error toggling integration:", err)
+      alert(`Failed to toggle integration: ${err?.message || "Unknown error"}`)
 
-      console.log("Integration toggled:", result)
-    } catch (error: any) {
-      console.error("Error toggling integration:", error)
-      alert(`Failed to toggle integration: ${error?.message || "Unknown error"}`)
-
-      // Revert optimistic update on network error
+      // Revert optimistic update on unexpected error
       setIntegrations((prev) =>
         prev.map((integration) =>
           integration.id === id ? { ...integration, enabled: current.enabled } : integration,
