@@ -49,10 +49,30 @@ export default function AxxessSetup() {
     }
   }
 
-  const saveConfiguration = async () => {
-    // Implement save logic here
-    alert("Configuration saved!")
+ const saveConfiguration = async () => {
+  try {
+    const response = await fetch("/api/integrations/axxess/test-connection", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...credentials,
+        syncSettings,
+      }),
+    })
+
+    const result = await response.json()
+
+    if (response.ok) {
+      alert("Configuration saved and enabled!")
+    } else {
+      alert(`Failed to save: ${result.error}`)
+    }
+  } catch (error) {
+    console.error("Save error:", error)
+    alert("An unexpected error occurred while saving.")
   }
+}
+
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -3,22 +3,36 @@ import { supabase } from "@/lib/supabase";
 import crypto from "crypto";
 
 // 🔐 Encryption Setup
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY!;
-const IV_LENGTH = 16;
-
 function encrypt(text: string): string {
-  if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) {
-    throw new Error("Invalid ENCRYPTION_KEY: must be 32 characters long");
+  const keyRaw = process.env.ENCRYPTION_KEY;
+
+  if (!keyRaw) {
+    throw new Error("ENCRYPTION_KEY is missing from environment variables");
   }
 
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(ENCRYPTION_KEY), iv);
+  // Detect format: hex or utf8
+  let key: Buffer;
+  try {
+    key = keyRaw.length === 64 ? Buffer.from(keyRaw, "hex") : Buffer.from(keyRaw, "utf8");
+  } catch (err) {
+    throw new Error("Failed to parse ENCRYPTION_KEY");
+  }
+
+  if (key.length !== 32) {
+    throw new Error(`Invalid ENCRYPTION_KEY length: expected 32 bytes, got ${key.length}`);
+  }
+
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
+
   return iv.toString("hex") + ":" + encrypted;
 }
 
-// ✅ TEST CONNECTION (simulate)
+
+// ✅ TEST CONNECTION
 export async function POST(req: NextRequest) {
   try {
     const { username, password, agencyId, environment } = await req.json();
@@ -27,7 +41,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing credentials" }, { status: 400 });
     }
 
-    // Simulate Axxess API call - REPLACE with real call
+    // Simulated Axxess API check
     if (!username.includes("@") || password.length < 8) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
@@ -47,7 +61,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ✅ SAVE TO Supabase (PUT)
+// ✅ SAVE TO SUPABASE
 export async function PUT(req: NextRequest) {
   try {
     const {
@@ -55,11 +69,11 @@ export async function PUT(req: NextRequest) {
       username,
       password,
       agencyId,
-      environment,
+      environment = "production",
       syncSettings = {},
     } = await req.json();
 
-    if (!username || !password || !agencyId || !syncSettings) {
+    if (!username || !password || !agencyId) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
@@ -70,7 +84,7 @@ export async function PUT(req: NextRequest) {
       username,
       password_encrypted: encryptedPassword,
       agency_id: agencyId,
-      environment: environment || "production",
+      environment,
       sync_patients: syncSettings.patients || false,
       sync_orders: syncSettings.orders || false,
       sync_documents: syncSettings.documents || false,
