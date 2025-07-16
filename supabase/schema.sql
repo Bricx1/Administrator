@@ -3,6 +3,7 @@
 create table if not exists integrations (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
+  enabled boolean default false,
   status boolean default false,
   created_at timestamptz default now(),
   updated_at timestamptz default now()

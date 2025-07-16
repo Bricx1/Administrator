@@ -305,29 +305,23 @@ export default function IntegrationsPage() {
         body: JSON.stringify({ enabled: nextEnabled }),
       })
 
-      let payload: any
-      let parseError: string | undefined
-
+      let payload: any = null
       try {
         payload = await response.json()
-      } catch (err: any) {
-        parseError = err?.message
-        try {
-          const text = await response.text()
-          if (text) payload = { error: text }
-        } catch {}
+      } catch (err) {
+        console.error("Failed to parse response JSON", err)
+        const text = await response.text().catch(() => "")
+        if (text) payload = { error: text }
       }
 
       if (!response.ok || !payload || payload.success === false) {
         const message =
           payload?.error ||
           payload?.message ||
-          parseError ||
           `Request failed with status ${response.status}`
         console.error("Toggle integration failed:", message)
         alert(`Failed to toggle integration: ${message}`)
 
-        // Revert optimistic update
         setIntegrations((prev) =>
           prev.map((integration) =>
             integration.id === id ? { ...integration, enabled: current.enabled } : integration,
@@ -336,7 +330,7 @@ export default function IntegrationsPage() {
         return
       }
 
-      const enabled = payload.enabled ?? nextEnabled
+      const enabled = typeof payload.enabled === "boolean" ? payload.enabled : nextEnabled
       setIntegrations((prev) =>
         prev.map((integration) =>
           integration.id === id
@@ -352,7 +346,6 @@ export default function IntegrationsPage() {
       console.error("Error toggling integration:", err)
       alert(`Failed to toggle integration: ${err?.message || "Unknown error"}`)
 
-      // Revert optimistic update on unexpected error
       setIntegrations((prev) =>
         prev.map((integration) =>
           integration.id === id ? { ...integration, enabled: current.enabled } : integration,
