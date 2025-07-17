@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
+import IntegrationStatusToggle from "@/components/integration-status-toggle"
+import { supabase } from "@/lib/supabase"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -284,6 +286,70 @@ export default function IntegrationsPage() {
 
   const [isNewIntegrationOpen, setIsNewIntegrationOpen] = useState(false)
   const [runningWorkflows, setRunningWorkflows] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const ids = integrations.map((i) => i.id).join(",")
+        const res = await fetch(`/api/integrations?ids=${ids}`)
+        const json = await res.json().catch(() => null)
+        if (Array.isArray(json)) {
+          setIntegrations((prev) =>
+            prev.map((integration) => {
+              const remote = json.find((r: any) => r.id === integration.id)
+              if (remote && typeof remote.enabled === "boolean") {
+                return {
+                  ...integration,
+                  enabled: remote.enabled,
+                  status: remote.enabled ? "connected" : "disconnected",
+                }
+              }
+              if (remote && typeof remote.status === "boolean") {
+                return {
+                  ...integration,
+                  enabled: remote.status,
+                  status: remote.status ? "connected" : "disconnected",
+                }
+              }
+              return integration
+            }),
+          )
+        }
+      } catch (err) {
+        console.error("Failed to load integration status", err)
+      }
+    }
+
+    fetchStatus()
+
+    const channel = supabase
+      .channel("public:integrations")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "integrations" },
+        (payload) => {
+          const updated = payload.new
+          const next =
+            typeof updated.enabled === "boolean" ? updated.enabled : updated.status
+          setIntegrations((prev) =>
+            prev.map((i) =>
+              i.id === updated.id
+                ? {
+                    ...i,
+                    enabled: next,
+                    status: next ? "connected" : "disconnected",
+                  }
+                : i,
+            ),
+          )
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   const toggleIntegration = async (id: string) => {
     const current = integrations.find((i) => i.id === id)
@@ -592,9 +658,22 @@ export default function IntegrationsPage() {
                               <CardDescription className="text-sm">{integration.description}</CardDescription>
                             </div>
                           </div>
-                          <Switch
-                            checked={integration.enabled}
-                            onCheckedChange={() => toggleIntegration(integration.id)}
+                          <IntegrationStatusToggle
+                            id={integration.id}
+                            enabled={integration.enabled}
+                            onChange={(val) =>
+                              setIntegrations((prev) =>
+                                prev.map((i) =>
+                                  i.id === integration.id
+                                    ? {
+                                        ...i,
+                                        enabled: val,
+                                        status: val ? "connected" : "disconnected",
+                                      }
+                                    : i,
+                                ),
+                              )
+                            }
                           />
                         </div>
                       </CardHeader>
@@ -676,9 +755,22 @@ export default function IntegrationsPage() {
                               <CardDescription className="text-sm">{integration.description}</CardDescription>
                             </div>
                           </div>
-                          <Switch
-                            checked={integration.enabled}
-                            onCheckedChange={() => toggleIntegration(integration.id)}
+                          <IntegrationStatusToggle
+                            id={integration.id}
+                            enabled={integration.enabled}
+                            onChange={(val) =>
+                              setIntegrations((prev) =>
+                                prev.map((i) =>
+                                  i.id === integration.id
+                                    ? {
+                                        ...i,
+                                        enabled: val,
+                                        status: val ? "connected" : "disconnected",
+                                      }
+                                    : i,
+                                ),
+                              )
+                            }
                           />
                         </div>
                       </CardHeader>
@@ -760,9 +852,22 @@ export default function IntegrationsPage() {
                               <CardDescription className="text-sm">{integration.description}</CardDescription>
                             </div>
                           </div>
-                          <Switch
-                            checked={integration.enabled}
-                            onCheckedChange={() => toggleIntegration(integration.id)}
+                          <IntegrationStatusToggle
+                            id={integration.id}
+                            enabled={integration.enabled}
+                            onChange={(val) =>
+                              setIntegrations((prev) =>
+                                prev.map((i) =>
+                                  i.id === integration.id
+                                    ? {
+                                        ...i,
+                                        enabled: val,
+                                        status: val ? "connected" : "disconnected",
+                                      }
+                                    : i,
+                                ),
+                              )
+                            }
                           />
                         </div>
                       </CardHeader>
@@ -844,9 +949,22 @@ export default function IntegrationsPage() {
                               <CardDescription className="text-sm">{integration.description}</CardDescription>
                             </div>
                           </div>
-                          <Switch
-                            checked={integration.enabled}
-                            onCheckedChange={() => toggleIntegration(integration.id)}
+                          <IntegrationStatusToggle
+                            id={integration.id}
+                            enabled={integration.enabled}
+                            onChange={(val) =>
+                              setIntegrations((prev) =>
+                                prev.map((i) =>
+                                  i.id === integration.id
+                                    ? {
+                                        ...i,
+                                        enabled: val,
+                                        status: val ? "connected" : "disconnected",
+                                      }
+                                    : i,
+                                ),
+                              )
+                            }
                           />
                         </div>
                       </CardHeader>
