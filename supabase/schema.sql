@@ -73,3 +73,25 @@ create table if not exists public.api_monitoring (
   response_time_ms int,
   created_at timestamp default now()
 );
+
+create table public.availity_integrations (
+  user_id uuid not null,
+  username text null,
+  password text null,
+  organization_id text null,
+  application_id text null,
+  environment text null,
+  auto_eligibility boolean null,
+  auto_prior_auth boolean null,
+  enable_claims boolean null,
+  enable_remittance boolean null,
+  sync_frequency text null,
+  updated_at timestamp without time zone null,
+  constraint availity_integrations_pkey primary key (user_id)
+) TABLESPACE pg_default;
+
+create trigger availity_realtime_trigger
+after INSERT
+or
+update on availity_integrations for EACH row
+execute FUNCTION notify_availity_update ();
