@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +25,8 @@ import {
   Globe,
 } from "lucide-react"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
+import type { AvailityTransaction } from "@/types/availity"
 
 export default function AvailitySetupPage() {
   const [credentials, setCredentials] = useState({
@@ -38,6 +40,9 @@ export default function AvailitySetupPage() {
   const [isConnecting, setIsConnecting] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle")
   const [testResults, setTestResults] = useState<any>(null)
+  const [transactions, setTransactions] = useState<AvailityTransaction[]>([])
+  const [loadingTransactions, setLoadingTransactions] = useState(true)
+  const [transactionsError, setTransactionsError] = useState<string | null>(null)
 
   const [syncSettings, setSyncSettings] = useState({
     autoEligibilityCheck: true,
@@ -105,6 +110,42 @@ export default function AvailitySetupPage() {
       alert("Error saving configuration")
     }
   }
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoadingTransactions(true)
+        const res = await fetch(
+          "/api/integrations/availity/fetch-transactions?limit=50",
+        )
+        if (!res.ok) throw new Error("Request failed")
+        const data: AvailityTransaction[] = await res.json()
+        setTransactions(data)
+      } catch (err) {
+        console.error("Load transactions error", err)
+        setTransactionsError("Unable to load transactions")
+      } finally {
+        setLoadingTransactions(false)
+      }
+    }
+
+    load()
+
+    const channel = supabase
+      .channel("public:availity_transactions")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "availity_transactions" },
+        (payload) => {
+          setTransactions((prev) => [payload.new as AvailityTransaction, ...prev])
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -548,59 +589,50 @@ export default function AvailitySetupPage() {
                 <div className="mt-6">
                   <h3 className="font-medium mb-4">Recent Transactions</h3>
                   <div className="space-y-2">
-                    {[
-                      {
-                        time: "2:18 PM",
-                        service: "Eligibility Check",
-                        patient: "Margaret Anderson",
-                        payer: "Medicare",
-                        status: "success",
-                      },
-                      {
-                        time: "2:15 PM",
-                        service: "Prior Auth",
-                        patient: "Robert Thompson",
-                        payer: "Blue Cross",
-                        status: "approved",
-                      },
-                      {
-                        time: "2:12 PM",
-                        service: "Claim Submission",
-                        patient: "Dorothy Williams",
-                        payer: "Medicaid",
-                        status: "accepted",
-                      },
-                      {
-                        time: "2:08 PM",
-                        service: "ERA Processing",
-                        patient: "Batch #1247",
-                        payer: "Multiple",
-                        status: "processed",
-                      },
-                    ].map((transaction, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                        <div className="flex items-center space-x-3">
-                          <div className="text-sm text-gray-500">{transaction.time}</div>
-                          <div className="text-sm font-medium">{transaction.service}</div>
-                          <div className="text-sm text-gray-600">{transaction.patient}</div>
-                          <div className="text-sm text-gray-500">({transaction.payer})</div>
-                        </div>
-                        <Badge
-                          className={
-                            transaction.status === "success" ||
-                            transaction.status === "approved" ||
-                            transaction.status === "accepted" ||
-                            transaction.status === "processed"
-                              ? "bg-green-100 text-green-800"
-                              : transaction.status === "pending"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-red-100 text-red-800"
-                          }
+                    {loadingTransactions ? (
+                      <p className="text-sm text-gray-500">Loading...</p>
+                    ) : transactionsError ? (
+                      <p className="text-sm text-red-500">{transactionsError}</p>
+                    ) : transactions.length === 0 ? (
+                      <p className="text-sm text-gray-500">No transactions available.</p>
+                    ) : (
+                      transactions.map((transaction) => (
+                        <div
+                          key={transaction.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded"
                         >
-                          {transaction.status}
-                        </Badge>
-                      </div>
-                    ))}
+                          <div className="flex items-center space-x-3">
+                            <div className="text-sm text-gray-500">
+                              {new Date(transaction.created_at).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                            <div className="text-sm font-medium">{transaction.type}</div>
+                            {transaction.patient && (
+                              <div className="text-sm text-gray-600">{transaction.patient}</div>
+                            )}
+                            {transaction.payer && (
+                              <div className="text-sm text-gray-500">({transaction.payer})</div>
+                            )}
+                          </div>
+                          <Badge
+                            className={
+                              transaction.status === "success" ||
+                              transaction.status === "approved" ||
+                              transaction.status === "accepted" ||
+                              transaction.status === "processed"
+                                ? "bg-green-100 text-green-800"
+                                : transaction.status === "pending"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                            }
+                          >
+                            {transaction.status}
+                          </Badge>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </CardContent>
