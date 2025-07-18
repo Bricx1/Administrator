@@ -91,31 +91,46 @@ export default function ExtendedCareSetupPage() {
   }
 
   const saveConfiguration = async () => {
-    setIsSaving(true)
+  setIsSaving(true);
+  try {
+    // 1️⃣ Save credentials
+    const credRes = await fetch("/api/integrations/extendedcare/configure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "credentials", ...credentials }),
+    });
 
-    try {
-      const response = await fetch("/api/integrations/extendedcare/configure", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          credentials,
-          syncSettings,
-          referralMetrics,
-        }),
-      })
+    const credResult = await credRes.json();
+    if (!credResult.success) throw new Error("Failed to save credentials");
 
-      const result = await response.json()
+    // 2️⃣ Save referral metrics
+    const refRes = await fetch("/api/integrations/extendedcare/configure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "referral_metrics", ...referralMetrics }),
+    });
 
-      if (result.success) {
-        // Show success message
-        console.log("Configuration saved successfully")
-      }
-    } catch (error) {
-      console.error("Failed to save configuration:", error)
-    } finally {
-      setIsSaving(false)
-    }
+    const refResult = await refRes.json();
+    if (!refResult.success) throw new Error("Failed to save referral metrics");
+
+    // 3️⃣ Save sync settings
+    const syncRes = await fetch("/api/integrations/extendedcare/configure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "sync_settings", ...syncSettings }),
+    });
+
+    const syncResult = await syncRes.json();
+    if (!syncResult.success) throw new Error("Failed to save sync settings");
+
+    console.log("✅ All configuration saved successfully");
+  } catch (error) {
+    console.error("❌ Failed to save configuration:", error);
+  } finally {
+    setIsSaving(false);
   }
+};
+
 
   return (
     <div className="min-h-screen bg-gray-50">

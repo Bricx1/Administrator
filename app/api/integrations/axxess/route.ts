@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     // ✅ Strict whitelist for sync_frequency
     const rawFreq = String(syncSettings.syncFrequency || "").toLowerCase().trim();
-    const frequency = ["manual", "hourly", "daily"].includes(rawFreq) ? rawFreq : "manual";
+    const frequency = ["manual sync only!", "every hour", "daily at 6am", "Every 15 minutes", "Realtime (Webhook)"].includes(rawFreq) ? rawFreq : "manual";
 
     // ✅ Only allowed fields are passed to the DB
     const payload = {

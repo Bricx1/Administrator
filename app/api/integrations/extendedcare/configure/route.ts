@@ -1,125 +1,102 @@
-"use server"
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 
-import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
-import { v4 as uuidv4 } from "uuid"
-import crypto from "crypto"
-
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY!
-const IV_LENGTH = 16
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY!;
+const IV_LENGTH = 16;
 
 function encrypt(text: string): string {
-  const iv = crypto.randomBytes(IV_LENGTH)
-  const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(ENCRYPTION_KEY, "hex"), iv)
-  let encrypted = cipher.update(text, "utf8", "hex")
-  encrypted += cipher.final("hex")
-  return iv.toString("hex") + ":" + encrypted
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(ENCRYPTION_KEY, "hex"), iv);
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  return iv.toString("hex") + ":" + encrypted;
 }
 
 function clean(obj: Record<string, any>) {
-  return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== null && v !== undefined))
+  return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== null && v !== undefined));
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const type = body.type
-    const integration_id = body.integration_id || uuidv4()
+    const body = await req.json();
+    console.log("🟠 Full incoming body:", body);
 
-    if (!type) {
-      return NextResponse.json({ success: false, message: "Missing type." }, { status: 200 })
-    }
+    const { credentials, referralMetrics, syncSettings } = body;
+    const now = new Date().toISOString();
 
-    if (type === "credentials") {
-      const { username, password, client_id, client_secret, environment } = body
+    // 🔐 Save to extendedcare_credentials
+    if (credentials) {
+      const {
+        username,
+        password,
+        agency_id,
+        client_id,
+        client_secret,
+        environment
+      } = credentials;
 
-      if (!username || !password || !client_id || !client_secret || !environment) {
-        return NextResponse.json({ success: false, message: "Missing credential fields.", received: body }, { status: 200 })
+      if (!username || !password || !agency_id || !client_id || !client_secret || !environment) {
+        return NextResponse.json({ success: false, message: "Missing credential fields" }, { status: 400 });
       }
 
-      const { error } = await supabase.from("integration_credentials").upsert({
-        id: integration_id,
+      const credPayload = clean({
+        id: uuidv4(),
         username,
         password: encrypt(password),
         client_id,
         client_secret: encrypt(client_secret),
+        agency_id,
         environment,
-        created_at: new Date().toISOString(),
-      })
+        created_at: now,
+      });
 
-      if (error) throw error
-      return NextResponse.json({ success: true, integration_id }, { status: 200 })
+      const { error } = await supabase.from("extendedcare_credentials").upsert(credPayload);
+      if (error) throw error;
     }
 
-    if (type === "referral_rules") {
-      const {
-        accepted_insurance,
-        reimbursement_rate,
-        travel_distance,
-        required_services,
-        excluded_diagnoses,
-        msw_notifications,
-      } = body
+    // 📊 Save to extendedcare_referral_metrics
+    if (referralMetrics) {
+      const refPayload = clean({
+        id: uuidv4(),
+        accept_medicare: referralMetrics.acceptMedicare,
+        accept_medicaid: referralMetrics.acceptMedicaid,
+        accept_commercial: referralMetrics.acceptCommercial,
+        accept_private_pay: referralMetrics.acceptPrivatePay,
+        reimbursement_rate: referralMetrics.maxReimbursementRate,
+        max_travel_distance: referralMetrics.maxTravelDistance,
+        success_rate: referralMetrics.successRate,
+        required_services: referralMetrics.requiredServices,
+        excluded_diagnosis: referralMetrics.excludedDiagnoses,
+        created_at: now,
+      });
 
-      const { error } = await supabase.from("integration_referral_rules").upsert({
-        integration_id,
-        accepted_insurance,
-        reimbursement_rate: reimbursement_rate,
-        travel_distance: travel_distance,
-        required_services,
-        excluded_diagnoses,
-        msw_notifications,
-        updated_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-      })
-
-      if (error) throw error
-      return NextResponse.json({ success: true }, { status: 200 })
+      const { error } = await supabase.from("extendedcare_referral_metrics").insert(refPayload);
+      if (error) throw error;
     }
 
-    if (type === "sync_settings") {
-      const {
-        auto_eligibility,
-        auto_auth,
-        real_time,
-        batch,
-        notify_msw,
-        interval,
-      } = body
+    // 🔁 Save to extendedcare_sync_settings
+    if (syncSettings) {
+      const syncPayload = clean({
+        id: uuidv4(),
+        auto_eligibility_check: syncSettings.autoEligibilityCheck,
+        auto_prior_auth: syncSettings.autoPriorAuth,
+        real_time_updates: syncSettings.realTimeUpdates,
+        batch_processing: syncSettings.batchProcessing,
+        notify_errors: syncSettings.notifyErrors,
+        sync_interval: syncSettings.syncInterval,
+        created_at: now,
+      });
 
-      const { error } = await supabase.from("integration_sync_settings").upsert({
-        integration_id,
-        auto_eligibility,
-        auto_auth,
-        real_time,
-        batch,
-        notify_msw,
-        interval,
-      })
-
-      if (error) throw error
-      return NextResponse.json({ success: true }, { status: 200 })
+      const { error } = await supabase.from("extendedcare_sync_settings").insert(syncPayload);
+      if (error) throw error;
     }
 
-    if (type === "test-connection") {
-      const { username, password } = body
-      const simulatedSuccess = username.includes("@") && password.length >= 8
+    return NextResponse.json({ success: true });
 
-      const { error } = await supabase.from("monitoring_logs").insert({
-        integration_id,
-        type: "test-connection",
-        status: simulatedSuccess ? "success" : "failed",
-        message: simulatedSuccess ? "Connection successful" : "Invalid credentials",
-        created_at: new Date().toISOString(),
-      })
-
-      if (error) throw error
-      return NextResponse.json({ success: simulatedSuccess }, { status: 200 })
-    }
-
-    return NextResponse.json({ success: false, message: "Unknown type.", received: body }, { status: 200 })
-  } catch (err: any) {
-    console.error("Integration Save Error:", err)
-    return NextResponse.json({ success: false, message: err.message, debug: err }, { status: 200 })
+  } catch (err) {
+    console.error("🔥 Supabase Save Error:", err);
+    return NextResponse.json({ success: false, message: "Internal server error", error: err }, { status: 500 });
   }
 }

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       environment,
       syncSettings,
       referralRules,
-      integrationName,     // NEW: integration display name
+      integrationName,     
       type = "extendedcare", // optional: type/category
       category = "referral"  // optional: category
     } = data;
