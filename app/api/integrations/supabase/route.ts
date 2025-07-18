@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   try {
     const { enabled } = await request.json()
 
-    // Mock toggle integration
+ 
     const result = {
       success: true,
       enabled,
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     }
 
-    // Simulate database operations
+    
     if (enabled) {
       // Mock database connection test
       await new Promise((resolve) => setTimeout(resolve, 1000))

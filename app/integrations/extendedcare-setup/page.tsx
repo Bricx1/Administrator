@@ -90,32 +90,87 @@ export default function ExtendedCareSetupPage() {
     }
   }
 
-  const saveConfiguration = async () => {
-    setIsSaving(true)
+const saveConfiguration = async () => {
+  setIsSaving(true);
+  try {
+    // Map frontend data structure to backend expectations
+    const payload = {
+      credentials: {
+        username: credentials.username,
+        password: credentials.password,
+        agencyId: credentials.clientId, // Using clientId as agencyId for now
+        clientId: credentials.clientId,
+        clientSecret: credentials.clientSecret,
+        environment: credentials.environment,
+      },
+      referralMetrics: {
+        acceptMedicare: referralMetrics.acceptMedicare,
+        acceptMedicaid: referralMetrics.acceptMedicaid,
+        acceptCommercial: referralMetrics.acceptCommercial,
+        acceptPrivatePay: referralMetrics.acceptManagedCare, // Map acceptManagedCare to acceptPrivatePay
+        maxReimbursementRate: parseInt(referralMetrics.minReimbursementRate) || 0,
+        maxTravelDistance: parseInt(referralMetrics.maxTravelDistance) || 0,
+        successRate: 0, // Default value
+        requiredServices: referralMetrics.requiredServices || [],
+        excluded_diagnoses: referralMetrics.excludedDiagnoses || [],
+      },
+      syncSettings: {
+        autoEligibilityCheck: syncSettings.autoEligibilityCheck,
+        autoPriorAuth: syncSettings.autoPriorAuth,
+        realTimeUpdates: syncSettings.realTimeUpdates,
+        batchProcessing: syncSettings.batchProcessing,
+         notify_msw: syncSettings.notifyMSW,  // Map notifyMSW to notifyErrors
+        syncInterval: parseInt(syncSettings.syncInterval) || 15,
+      },
+    };
 
-    try {
-      const response = await fetch("/api/integrations/extendedcare/configure", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          credentials,
-          syncSettings,
-          referralMetrics,
-        }),
-      })
+    console.log("📤 Payload:", payload);
 
-      const result = await response.json()
+    const res = await fetch("/api/integrations/extendedcare/configure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-      if (result.success) {
-        // Show success message
-        console.log("Configuration saved successfully")
+    const text = await res.text();
+    console.log("📥 Server response:", text);
+
+    // Check if response is empty or not JSON
+    if (!text || text.trim() === '') {
+      if (res.ok) {
+        alert("✅ Saved successfully!");
+        return;
+      } else {
+        throw new Error(`Server error: ${res.status} ${res.statusText}`);
       }
-    } catch (error) {
-      console.error("Failed to save configuration:", error)
-    } finally {
-      setIsSaving(false)
     }
+
+    // Try to parse JSON
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (parseError) {
+      console.error("Failed to parse JSON:", parseError);
+      throw new Error(`Invalid JSON response: ${text}`);
+    }
+
+    if (!res.ok || !result.success) {
+      throw new Error(result.error || `Server error: ${res.status} ${res.statusText}`);
+    }
+
+    alert("✅ Saved successfully!");
+  } catch (err: any) {
+    console.error("💥 Failed:", err);
+    alert(`Error: ${err.message}`);
+  } finally {
+    setIsSaving(false);
   }
+};
+
+
+
+
+
 
   return (
     <div className="min-h-screen bg-gray-50">
