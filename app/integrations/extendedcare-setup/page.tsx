@@ -90,46 +90,86 @@ export default function ExtendedCareSetupPage() {
     }
   }
 
-  const saveConfiguration = async () => {
+const saveConfiguration = async () => {
   setIsSaving(true);
   try {
-    // 1️⃣ Save credentials
-    const credRes = await fetch("/api/integrations/extendedcare/configure", {
+    // Map frontend data structure to backend expectations
+    const payload = {
+      credentials: {
+        username: credentials.username,
+        password: credentials.password,
+        agencyId: credentials.clientId, // Using clientId as agencyId for now
+        clientId: credentials.clientId,
+        clientSecret: credentials.clientSecret,
+        environment: credentials.environment,
+      },
+      referralMetrics: {
+        acceptMedicare: referralMetrics.acceptMedicare,
+        acceptMedicaid: referralMetrics.acceptMedicaid,
+        acceptCommercial: referralMetrics.acceptCommercial,
+        acceptPrivatePay: referralMetrics.acceptManagedCare, // Map acceptManagedCare to acceptPrivatePay
+        maxReimbursementRate: parseInt(referralMetrics.minReimbursementRate) || 0,
+        maxTravelDistance: parseInt(referralMetrics.maxTravelDistance) || 0,
+        successRate: 0, // Default value
+        requiredServices: referralMetrics.requiredServices || [],
+        excluded_diagnoses: referralMetrics.excludedDiagnoses || [],
+      },
+      syncSettings: {
+        autoEligibilityCheck: syncSettings.autoEligibilityCheck,
+        autoPriorAuth: syncSettings.autoPriorAuth,
+        realTimeUpdates: syncSettings.realTimeUpdates,
+        batchProcessing: syncSettings.batchProcessing,
+         notify_msw: syncSettings.notifyMSW,  // Map notifyMSW to notifyErrors
+        syncInterval: parseInt(syncSettings.syncInterval) || 15,
+      },
+    };
+
+    console.log("📤 Payload:", payload);
+
+    const res = await fetch("/api/integrations/extendedcare/configure", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "credentials", ...credentials }),
+      body: JSON.stringify(payload),
     });
 
-    const credResult = await credRes.json();
-    if (!credResult.success) throw new Error("Failed to save credentials");
+    const text = await res.text();
+    console.log("📥 Server response:", text);
 
-    // 2️⃣ Save referral metrics
-    const refRes = await fetch("/api/integrations/extendedcare/configure", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "referral_metrics", ...referralMetrics }),
-    });
+    // Check if response is empty or not JSON
+    if (!text || text.trim() === '') {
+      if (res.ok) {
+        alert("✅ Saved successfully!");
+        return;
+      } else {
+        throw new Error(`Server error: ${res.status} ${res.statusText}`);
+      }
+    }
 
-    const refResult = await refRes.json();
-    if (!refResult.success) throw new Error("Failed to save referral metrics");
+    // Try to parse JSON
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (parseError) {
+      console.error("Failed to parse JSON:", parseError);
+      throw new Error(`Invalid JSON response: ${text}`);
+    }
 
-    // 3️⃣ Save sync settings
-    const syncRes = await fetch("/api/integrations/extendedcare/configure", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "sync_settings", ...syncSettings }),
-    });
+    if (!res.ok || !result.success) {
+      throw new Error(result.error || `Server error: ${res.status} ${res.statusText}`);
+    }
 
-    const syncResult = await syncRes.json();
-    if (!syncResult.success) throw new Error("Failed to save sync settings");
-
-    console.log("✅ All configuration saved successfully");
-  } catch (error) {
-    console.error("❌ Failed to save configuration:", error);
+    alert("✅ Saved successfully!");
+  } catch (err: any) {
+    console.error("💥 Failed:", err);
+    alert(`Error: ${err.message}`);
   } finally {
     setIsSaving(false);
   }
 };
+
+
+
+
 
 
   return (
