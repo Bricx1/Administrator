@@ -63,89 +63,70 @@ export default function AvailitySetupPage() {
   }
 
   const testConnection = async () => {
-    setIsConnecting(true)
-    setConnectionStatus("idle")
+  setIsConnecting(true);
+  setConnectionStatus("idle");
 
-    try {
-      const response = await fetch("/api/integrations/availity/test-connection", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
-      })
+  try {
+    const response = await fetch("/api/integrations/availity/configure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "test_connection",
+        username: credentials.username,
+        password: credentials.password,
+        organization_id: credentials.organizationId,
+        application_id: credentials.applicationId,
+        environment: credentials.environment,
+      }),
+    });
 
-      const data = await response.json()
+    const data = await response.json();
 
-      if (data.success) {
-        setConnectionStatus("success")
-        setTestResults(data.testResults)
-      } else {
-        setConnectionStatus("error")
-        setTestResults({ error: data.message })
-      }
-    } catch (error) {
-      setConnectionStatus("error")
-      setTestResults({ error: "Failed to connect to Availity API" })
-    } finally {
-      setIsConnecting(false)
+    if (data.success) {
+      setConnectionStatus("success");
+      setTestResults(data);
+    } else {
+      setConnectionStatus("error");
+      setTestResults({ error: data.error });
     }
+  } catch (error) {
+    setConnectionStatus("error");
+    setTestResults({ error: "Failed to connect to Availity API" });
+  } finally {
+    setIsConnecting(false);
   }
+};
 
-  const saveConfiguration = async () => {
-    try {
-      const response = await fetch("/api/integrations/availity/configure", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          credentials,
-          syncSettings,
-        }),
-      })
 
-      if (response.ok) {
-        alert("Availity integration configured successfully!")
-      } else {
-        alert("Failed to save configuration")
-      }
-    } catch (error) {
-      alert("Error saving configuration")
-    }
+ const saveConfiguration = async () => {
+  const response = await fetch("/api/integrations/availity/configure", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      credentials: {
+        username: "sample@availity.com",
+        password: "pass123",
+        organizationId: "availitynurse",
+        applicationId: "123122",
+        environment: "sandbox",
+      },
+      syncSettings: {
+        autoEligibilityCheck: true,
+        autoPriorAuth: false,
+        enableClaims: true,
+        enableRemittance: false,
+        syncFrequency: "manual",
+      },
+    }),
+  });
+
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    alert(`❌ Failed: ${result.error}`);
+  } else {
+    alert("✅ Configuration saved!");
   }
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoadingTransactions(true)
-        const res = await fetch(
-          "/api/integrations/availity/fetch-transactions?limit=50",
-        )
-        if (!res.ok) throw new Error("Request failed")
-        const data: AvailityTransaction[] = await res.json()
-        setTransactions(data)
-      } catch (err) {
-        console.error("Load transactions error", err)
-        setTransactionsError("Unable to load transactions")
-      } finally {
-        setLoadingTransactions(false)
-      }
-    }
-
-    load()
-
-    const channel = supabase
-      .channel("public:availity_transactions")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "availity_transactions" },
-        (payload) => {
-          setTransactions((prev) => [payload.new as AvailityTransaction, ...prev])
-        },
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
+};
 
   return (
     <div className="min-h-screen bg-gray-50">

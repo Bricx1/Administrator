@@ -1,107 +1,67 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { cookies} from "next/headers"
-import {supabase} from "@/lib/supabase"
-export async function POST(request: NextRequest) {
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+import { decrypt } from "@/lib/encryption";
+
+export async function POST(req: NextRequest) {
   try {
-    const { username, password, organizationId, applicationId, environment } = await request.json()
+    const { testType, patient, payer } = await req.json();
+    const startTime = Date.now();
 
-    // Get user session
-    const cookieStore =  await cookies()
-    const user_id = cookieStore.get("user_id")?.value
-
-    if (!user_id) {
-      return NextResponse.json(
-        { success: false, message: "Authentication required. Please log in." },
-        { status: 401 }
-      )
+    if (!testType) {
+      return NextResponse.json({ success: false, error: "Missing test type" }, { status: 400 });
     }
 
-    // Validate required fields
-    if (!username || !password || !organizationId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Username, password, and Organization ID are required",
-        },
-        { status: 400 }
-      )
+    // 🔐 Get latest credentials from DB
+    const { data: credentials, error: fetchError } = await supabase
+      .from("availity_integrations")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (fetchError || !credentials) {
+      return NextResponse.json({ success: false, error: "Credentials not found" }, { status: 404 });
     }
 
-    // Simulate credential validation
-    if (username === "invalid" || password === "invalid") {
-      // Insert failed transaction
-      await supabase.from("availity_transactions").insert({
-        user_id,
-        type: "Eligibility",
-        status: "failed",
-        patient_name: "Test User",
-        payer_name: "Unknown",
-        payer_plan: "N/A",
-        error_message: "Invalid credentials provided",
-        created_at: new Date().toISOString()
-      })
+    const decryptedPassword = decrypt(credentials.password);
 
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid Availity credentials provided",
-        },
-        { status: 401 }
-      )
-    }
+    // 🧪 Simulate actual eligibility/prior auth/claims check
+    // In production, replace this with real API call to Availity
+    await new Promise((res) => setTimeout(res, 900));
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1200))
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
-    // Insert successful test transaction
-    await supabase.from("availity_transactions").insert({
-      user_id,
-      type: "Eligibility",
+    // 📝 Log to test table
+    const logResult = await supabase.from("availity_test_logs").insert({
+      test_type: testType,
       status: "success",
-      patient_name: "Jane Doe",
-      payer_name: "Aetna",
-      payer_plan: "Basic Plus",
-      member_id: "TEST123456",
-      created_at: new Date().toISOString()
-    })
-
-    // Update or create integration record
-    await supabase.from("availity_integrations").upsert({
-      user_id,
-      username,
-      organization_id: organizationId,
-      application_id: applicationId,
-      environment,
-      is_active: true,
-      last_sync: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' })
-
-    return NextResponse.json({
-      success: true,
-      message: "Successfully connected to Availity API",
-      testResults: {
-        apiVersion: "v1.0",
-        services: {
-          eligibility: "available",
-          priorAuth: "available",
-          claims: "available",
-          remittance: "available",
+      response_time: duration,
+      message: "Test completed successfully",
+      metadata: {
+        used_credentials: {
+          username: credentials.username,
+          organization_id: credentials.organization_id,
+          application_id: credentials.application_id,
         },
-        responseTime: "0.8s",
-        environment,
-        payerCount: 2500,
-        coverage: "99% of insured Americans",
-      },
-    })
-  } catch (error) {
-    console.error("Error in /availity/test:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Internal server error",
-      },
-      { status: 500 }
-    )
+        test_patient: patient ?? {
+          name: "Jane Test",
+          dob: "1980-01-01",
+          member_id: "TEST123456"
+        },
+        test_payer: payer ?? {
+          payer_id: "12345",
+          plan: "United Health Plan A"
+        }
+      }
+    });
+
+    if (logResult.error) {
+      console.warn("Logging failed:", logResult.error.message);
+    }
+
+    return NextResponse.json({ success: true, duration });
+  } catch (err) {
+    console.error("Test error:", err);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

@@ -167,6 +167,25 @@ const saveConfiguration = async () => {
   }
 };
 
+const runTest = async (type: string) => {
+  try {
+    const res = await fetch(`/api/integrations/extendedcare/test`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type }),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      alert(`✅ ${type} test passed!`);
+    } else {
+      alert(`❌ ${type} test failed: ${data.error || "Unknown error"}`);
+    }
+  } catch (err) {
+    alert(`❌ ${type} test failed: ${err}`);
+  }
+};
+
 
 
 
@@ -616,33 +635,53 @@ const saveConfiguration = async () => {
           </TabsContent>
 
           <TabsContent value="testing" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>API Testing</CardTitle>
-                <CardDescription>Test your ExtendedCare integration with sample data</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button variant="outline" className="h-20 flex flex-col bg-transparent">
-                    <Users className="h-6 w-6 mb-2" />
-                    Test Eligibility Check
-                  </Button>
-                  <Button variant="outline" className="h-20 flex flex-col bg-transparent">
-                    <Shield className="h-6 w-6 mb-2" />
-                    Test Prior Authorization
-                  </Button>
-                  <Button variant="outline" className="h-20 flex flex-col bg-transparent">
-                    <DollarSign className="h-6 w-6 mb-2" />
-                    Test Claims Submission
-                  </Button>
-                  <Button variant="outline" className="h-20 flex flex-col bg-transparent">
-                    <Activity className="h-6 w-6 mb-2" />
-                    Test Real-time Sync
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+  <Card>
+    <CardHeader>
+      <CardTitle>API Testing</CardTitle>
+      <CardDescription>Test your ExtendedCare integration with sample data</CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Button
+          variant="outline"
+          className="h-20 flex flex-col bg-transparent"
+          onClick={() => runTest("eligibility")}
+        >
+          <Users className="h-6 w-6 mb-2" />
+          Test Eligibility Check
+        </Button>
+
+        <Button
+          variant="outline"
+          className="h-20 flex flex-col bg-transparent"
+          onClick={() => runTest("prior_auth")}
+        >
+          <Shield className="h-6 w-6 mb-2" />
+          Test Prior Authorization
+        </Button>
+
+        <Button
+          variant="outline"
+          className="h-20 flex flex-col bg-transparent"
+          onClick={() => runTest("claims")}
+        >
+          <DollarSign className="h-6 w-6 mb-2" />
+          Test Claims Submission
+        </Button>
+
+        <Button
+          variant="outline"
+          className="h-20 flex flex-col bg-transparent"
+          onClick={() => runTest("sync")}
+        >
+          <Activity className="h-6 w-6 mb-2" />
+          Test Real-time Sync
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+</TabsContent>
+
 
           <TabsContent value="monitoring" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
