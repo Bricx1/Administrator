@@ -287,81 +287,88 @@ export default function IntegrationsPage() {
   const [isNewIntegrationOpen, setIsNewIntegrationOpen] = useState(false)
   const [runningWorkflows, setRunningWorkflows] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const ids = integrations.map((i) => i.id).join(",")
-        const res = await fetch(`/api/integrations?ids=${ids}`)
-        const json = await res.json().catch(() => null)
-        if (Array.isArray(json)) {
-          setIntegrations((prev) =>
-            prev.map((integration) => {
-              const remote = json.find((r: any) => r.id === integration.id)
-              if (remote && typeof remote.enabled === "boolean") {
-                return {
-                  ...integration,
-                  enabled: remote.enabled,
-                  status: remote.enabled ? "connected" : "disconnected",
-                }
-              }
-              if (remote && typeof remote.status === "boolean") {
-                return {
-                  ...integration,
-                  enabled: remote.status,
-                  status: remote.status ? "connected" : "disconnected",
-                }
-              }
-              return integration
-            }),
-          )
-        }
-      } catch (err) {
-        console.error("Failed to load integration status", err)
+ useEffect(() => {
+  const fetchStatus = async () => {
+    try {
+      const ids = integrations.map((i) => i.id).join(",");
+      const res = await fetch(`/api/integrations?ids=${ids}`);
+      const json = await res.json().catch(() => null);
+
+      if (Array.isArray(json)) {
+        setIntegrations((prev) =>
+          prev.map((integration) => {
+            const remote = json.find((r: any) => r.id === integration.id);
+            if (remote) {
+              const enabled = typeof remote.enabled === "boolean"
+                ? remote.enabled
+                : remote.status === "connected";
+              return {
+                ...integration,
+                enabled,
+                status: enabled ? "connected" : "disconnected",
+              };
+            }
+            return integration;
+          })
+        );
       }
+    } catch (err) {
+      console.error("Failed to load integration status", err);
     }
 
-    fetchStatus()
+  };
 
-    const channel = supabase
-      .channel("public:integrations")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "integrations" },
-        (payload) => {
-          const updated = payload.new
-          const next =
-            typeof updated.enabled === "boolean" ? updated.enabled : updated.status
-          setIntegrations((prev) =>
-            prev.map((i) =>
-              i.id === updated.id
-                ? {
-                    ...i,
-                    enabled: next,
-                    status: next ? "connected" : "disconnected",
-                  }
-                : i,
-            ),
+
+  fetchStatus();
+
+  const channel = supabase
+    .channel("public:integrations")
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "integrations" },
+      (payload) => {
+        const updated = payload.new;
+        const nextEnabled = updated.enabled === true;
+        const status = updated.status ?? (nextEnabled ? "connected" : "disconnected");
+
+        setIntegrations((prev) =>
+          prev.map((i) =>
+            i.id === updated.id
+              ? {
+                  ...i,
+                  enabled: nextEnabled,
+                  status,
+                }
+
+                : i
           )
-        },
-      )
-      .subscribe()
+        );
+      }
+    )
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
+    .subscribe();
 
-  const toggleIntegration = async (id: string) => {
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
+
+
+
+
+const toggleIntegration = async (id: string) => {
     const current = integrations.find((i) => i.id === id)
     if (!current) return
 
     const nextEnabled = !current.enabled
 
-    // Optimistically update switch state
+
+    // Optimistic UI update
     setIntegrations((prev) =>
       prev.map((integration) =>
-        integration.id === id ? { ...integration, enabled: nextEnabled } : integration,
-      ),
+        integration.id === id ? { ...integration, enabled: nextEnabled } : integration
+
+  )
     )
 
     try {
@@ -371,54 +378,36 @@ export default function IntegrationsPage() {
         body: JSON.stringify({ enabled: nextEnabled }),
       })
 
-      const text = await response.text()
-      let payload: any = null
-      try {
-        payload = text ? JSON.parse(text) : null
-      } catch (err) {
-        console.error("Failed to parse response JSON", err)
-        if (text) payload = { error: text }
-      }
+      const payload = await response.json()
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Toggle failed")
 
-      if (!response.ok || !payload || payload.success === false) {
-        const message =
-          payload?.error ||
-          `Request failed with status ${response.status}`
-        console.error("Toggle integration failed:", message)
-        alert(`Failed to toggle integration: ${message}`)
+      const finalEnabled =
+        typeof payload.enabled === "boolean" ? payload.enabled : nextEnabled
 
-        setIntegrations((prev) =>
-          prev.map((integration) =>
-            integration.id === id ? { ...integration, enabled: current.enabled } : integration,
-          ),
-        )
-        return
-      }
-
-      const enabled = typeof payload.enabled === "boolean" ? payload.enabled : nextEnabled
+        
       setIntegrations((prev) =>
         prev.map((integration) =>
           integration.id === id
             ? {
                 ...integration,
-                enabled,
-                status: enabled ? "connected" : "disconnected",
+                enabled: finalEnabled,
+                status: finalEnabled ? "connected" : "disconnected",
               }
-            : integration,
-        ),
+            : integration
+        )
       )
     } catch (err: any) {
-      console.error("Error toggling integration:", err)
-      alert(`Failed to toggle integration: ${err?.message || "Unknown error"}`)
-
+      alert("Failed to toggle integration: " + err.message)
+      // Revert optimistic UI
       setIntegrations((prev) =>
         prev.map((integration) =>
-          integration.id === id ? { ...integration, enabled: current.enabled } : integration,
-        ),
+          integration.id === id ? { ...integration, enabled: current.enabled } : integration
+        )
       )
     }
-  }
 
+
+  }
   const runWorkflow = async (workflowId: string) => {
     setRunningWorkflows((prev) => new Set(prev).add(workflowId))
 

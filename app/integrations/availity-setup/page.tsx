@@ -61,6 +61,36 @@ export default function AvailitySetupPage() {
   const handleSyncSettingChange = (setting: string, value: boolean | string) => {
     setSyncSettings((prev) => ({ ...prev, [setting]: value }))
   }
+   const handleTestClick = async (type: string) => {
+    try {
+      setIsConnecting(true)
+      const res = await fetch("/api/integrations/availity/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type, // e.g. eligibility, prior_auth, claims, era
+          username: credentials.username,
+          password: credentials.password,
+          organization_id: credentials.organizationId,
+          application_id: credentials.applicationId,
+          environment: credentials.environment,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setConnectionStatus("success")
+        setTestResults({ [type]: data.message })
+      } else {
+        setConnectionStatus("error")
+        setTestResults({ [type]: data.message || data.error })
+      }
+    } catch (err) {
+      setConnectionStatus("error")
+      setTestResults({ [type]: "Test failed unexpectedly" })
+    } finally {
+      setIsConnecting(false)
+    }
+  }
 
   const testConnection = async () => {
   setIsConnecting(true);
@@ -129,6 +159,7 @@ export default function AvailitySetupPage() {
 };
 
   return (
+    
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -157,6 +188,7 @@ export default function AvailitySetupPage() {
             <TabsTrigger value="testing">Testing</TabsTrigger>
             <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
           </TabsList>
+          
 
           <TabsContent value="credentials" className="space-y-6">
             <Card>

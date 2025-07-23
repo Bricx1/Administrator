@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +28,8 @@ import {
   TrendingUp,
 } from "lucide-react"
 import Link from "next/link"
+
+
 
 export default function ExtendedCareSetupPage() {
   const [activeTab, setActiveTab] = useState("credentials")
@@ -184,7 +186,13 @@ const runTest = async (type: string) => {
   } catch (err) {
     alert(`❌ ${type} test failed: ${err}`);
   }
-};
+
+  
+}
+
+
+
+
 
 
 

@@ -88,11 +88,7 @@ export async function GET(request: NextRequest) {
         .maybeSingle()
 
       if (error) {
-        console.error('Error fetching integration', error)
-        return NextResponse.json(
-          { error: error.message, code: error.code, details: error.details },
-          { status },
-        )
+        return NextResponse.json({ error: error.message }, { status })
       }
 
       if (!data) {
@@ -110,11 +106,7 @@ export async function GET(request: NextRequest) {
         .in('id', ids)
 
       if (error) {
-        console.error('Error fetching integrations', error)
-        return NextResponse.json(
-          { error: error.message, code: error.code, details: error.details },
-          { status },
-        )
+        return NextResponse.json({ error: error.message }, { status })
       }
 
       return NextResponse.json(data ?? [])
@@ -124,8 +116,8 @@ export async function GET(request: NextRequest) {
 
     if (statusParam !== null) {
       const normalized = statusParam.toLowerCase()
-      const status = normalized === 'true' || normalized === '1' || normalized === 'active'
-      query = query.eq('status', status)
+      const statusBool = normalized === 'true' || normalized === '1' || normalized === 'active'
+      query = query.eq('status', statusBool)
     }
 
     const { data, error, status: queryStatus } = await query.order('created_at', {
@@ -133,11 +125,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (error) {
-      console.error('Error fetching integrations', error)
-      return NextResponse.json(
-        { error: error.message, code: error.code, details: error.details },
-        { status: queryStatus },
-      )
+      return NextResponse.json({ error: error.message }, { status: queryStatus })
     }
 
     if (!data || data.length === 0) {
@@ -149,11 +137,7 @@ export async function GET(request: NextRequest) {
           .order('created_at', { ascending: sort !== 'desc' })
 
         if (seedError) {
-          console.error('Error seeding integrations', seedError)
-          return NextResponse.json(
-            { error: seedError.message, code: seedError.code, details: seedError.details },
-            { status: seedStatus },
-          )
+          return NextResponse.json({ error: seedError.message }, { status: seedStatus })
         }
 
         return NextResponse.json(seeded ?? [])
@@ -163,11 +147,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data)
   } catch (err) {
-    console.error(err)
     const supabaseError = err as PostgrestError
     return NextResponse.json(
-      { error: supabaseError.message || 'Failed to fetch integrations', code: supabaseError.code, details: supabaseError.details },
-      { status: (supabaseError as any).status || 500 },
+      {
+        error: supabaseError.message || 'Failed to fetch integrations',
+        code: supabaseError.code,
+        details: supabaseError.details,
+      },
+      { status: (supabaseError as any).status || 500 }
     )
   }
 }
